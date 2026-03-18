@@ -9,6 +9,10 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingArtist, setEditingArtist] = useState("");
+  const [editingYoutube, setEditingYoutube] = useState("");
 
   // DB에서 데이터 불러오기
   async function fetchSongs() {
@@ -81,6 +85,40 @@ export default function App() {
     }
   }
 
+  // DB에서 곡 업데이트
+  async function handleUpdate(id) {
+    const { error } = await supabase
+      .from("songs")
+      .update({
+        title: editingTitle,
+        artist: editingArtist,
+        youtube_url: editingYoutube || null,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      setError("업데이트 실패");
+    } else {
+      setSongs(
+        songs.map((song) =>
+          song.id === id
+            ? {
+                ...song,
+                title: editingTitle,
+                artist: editingArtist,
+                youtube_url: editingYoutube || null,
+              }
+            : song
+        )
+      );
+      setEditingId(null);
+      setEditingTitle("");
+      setEditingArtist("");
+      setEditingYoutube("");
+    }
+  }
+
   return (
     <div style={{ padding: 40 }}>
       <h1>같이 만드는 플레이리스트</h1>
@@ -115,14 +153,39 @@ export default function App() {
       ) : (
         filteredSongs.map((song) => (
           <div key={song.id}>
-            <h3>{song.title}</h3>
-            <p>{song.artist}</p>
-            {song.youtube_url && (
-              <a href={song.youtube_url} target="_blank">
-                링크
-              </a>
+            {editingId === song.id ? (
+              <>
+                <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} />
+                <input value={editingArtist} onChange={(e) => setEditingArtist(e.target.value)} />
+                <input value={editingYoutube} onChange={(e) => setEditingYoutube(e.target.value)} />
+              </>
+            ) : (
+              <>
+                <h3>{song.title}</h3>
+                <p>{song.artist}</p>
+                {song.youtube_url && (
+                  <a href={song.youtube_url} target="_blank">
+                    링크
+                  </a>
+                )}
+              </>
             )}
-            <button onClick={() => handleDelete(song.id)}>삭제</button>
+            {editingId === song.id ? (
+              <>
+                <button onClick={() => handleUpdate(song.id)}>저장</button>
+                <button onClick={() => setEditingId(null)}>취소</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => handleDelete(song.id)}>삭제</button>
+                <button onClick={() => {
+                  setEditingId(song.id);
+                  setEditingTitle(song.title);
+                  setEditingArtist(song.artist);
+                  setEditingYoutube(song.youtube_url || "");
+                }}>수정</button>
+              </>
+            )}
           </div>
         ))
       )}
