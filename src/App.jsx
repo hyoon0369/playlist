@@ -68,6 +68,19 @@ export default function App() {
     }
   }
 
+  // DB에서 곡 삭제
+  async function handleDelete(id) {
+    console.log(id);
+    const { error } = await supabase.from("songs").delete().eq("id", id);
+
+    if (error) {
+      console.error(error);
+      setError("삭제 실패");
+    } else {
+      setSongs(songs.filter(song => song.id !== id));
+    }
+  }
+
   return (
     <div style={{ padding: 40 }}>
       <h1>같이 만드는 플레이리스트</h1>
@@ -109,6 +122,7 @@ export default function App() {
                 링크
               </a>
             )}
+            <button onClick={() => handleDelete(song.id)}>삭제</button>
           </div>
         ))
       )}
