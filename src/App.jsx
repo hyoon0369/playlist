@@ -49,7 +49,7 @@ export default function App() {
     e.preventDefault();
 
     if (!title || !artist) {
-      setError("제목이랑 아티스트 입력해");
+      setError("제목과 아티스트 입력");
       return;
     }
 
@@ -121,7 +121,7 @@ export default function App() {
 
   return (
     <div style={{ padding: 40 }}>
-      <h1>같이 만드는 플레이리스트</h1>
+      <h1>Playlist</h1>
 
       <form onSubmit={handleSubmit}>
         <input
@@ -135,7 +135,7 @@ export default function App() {
           onChange={(e) => setArtist(e.target.value)}
         />
         <input
-          placeholder="유튜브 링크"
+          placeholder="링크"
           value={youtube}
           onChange={(e) => setYoutube(e.target.value)}
         />
