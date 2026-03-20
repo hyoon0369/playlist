@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabase";
 
@@ -453,6 +453,7 @@ function PlaylistDetailPage() {
   const [itunesResults, setItunesResults] = useState([]);
   const [itunesLoading, setItunesLoading] = useState(false);
   const [itunesError, setItunesError] = useState("");
+  const itunesAbortControllerRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -498,13 +499,21 @@ function PlaylistDetailPage() {
       return;
     }
 
+    if (itunesAbortControllerRef.current) {
+      itunesAbortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    itunesAbortControllerRef.current = controller;
+
     setItunesError("");
     setItunesLoading(true);
     setItunesResults([]);
 
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(itunesQuery)}&entity=song&limit=12`
+        `https://itunes.apple.com/search?term=${encodeURIComponent(itunesQuery)}&entity=song&limit=12`,
+        { signal: controller.signal }
       );
       if (!response.ok) {
         throw new Error(`iTunes 검색 실패: ${response.status}`);
@@ -515,11 +524,27 @@ function PlaylistDetailPage() {
         setItunesError("검색 결과가 없습니다.");
       }
     } catch (e) {
+      if (e.name === "AbortError") {
+        return;
+      }
       console.error(e);
       setItunesError("iTunes 검색 중 오류가 발생했습니다.");
     } finally {
+      if (itunesAbortControllerRef.current === controller) {
+        itunesAbortControllerRef.current = null;
+      }
       setItunesLoading(false);
     }
+  };
+
+  const handleCancelItunesSearch = () => {
+    if (itunesAbortControllerRef.current) {
+      itunesAbortControllerRef.current.abort();
+      itunesAbortControllerRef.current = null;
+    }
+    setItunesLoading(false);
+    setItunesError("");
+    setItunesResults([]);
   };
 
   const handleAddItunesTrack = async (track) => {
@@ -568,6 +593,12 @@ function PlaylistDetailPage() {
   useEffect(() => {
     fetchPlaylist();
     fetchSongs();
+
+    return () => {
+      if (itunesAbortControllerRef.current) {
+        itunesAbortControllerRef.current.abort();
+      }
+    };
   }, [playlistId]);
 
   const filteredSongs = useMemo(() => {
@@ -688,6 +719,15 @@ function PlaylistDetailPage() {
         />
         <button onClick={(e) => { e.preventDefault(); fetchItunes(); }} disabled={itunesLoading}>
           {itunesLoading ? "검색중..." : "검색"}
+        </button>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            handleCancelItunesSearch();
+          }}
+          style={{ marginLeft: 8 }}
+        >
+          취소
         </button>
       </div>
       {itunesError && <p style={{ color: "red" }}>{itunesError}</p>}
