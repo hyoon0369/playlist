@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Routes, Route, useParams, useNavigate } from "react-router-dom";
+import { Routes, Route, useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "./supabase";
 
 export default function App() {
@@ -16,6 +16,7 @@ export default function App() {
 // ========================
 function PlaylistListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [playlists, setPlaylists] = useState([]);
   const [songCountByPlaylist, setSongCountByPlaylist] = useState({});
   const [playlistsLoading, setPlaylistsLoading] = useState(true);
@@ -92,7 +93,7 @@ function PlaylistListPage() {
 
   useEffect(() => {
     fetchPlaylists();
-  }, []);
+  }, [location.key]);
 
   const sanitizeFileName = (originalName) => {
     const ext = originalName.split(".").pop() || "jpg";
@@ -493,15 +494,30 @@ function PlaylistListPage() {
           ))}
 
           <article
-            className="flex h-full cursor-pointer flex-col rounded-[24px] bg-[#ebe4cd]/80 p-7 transition duration-200 hover:bg-[#ece4ce]"
+            className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
             onClick={openAddPlaylistModal}
           >
-            <h2
-              className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#4a463d] md:text-[30px] lg:text-[34px]"
-              style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
-            >
-              New playlist
-            </h2>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 pr-2">
+                <h2
+                  className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#1e1b16] md:text-[30px] lg:text-[34px]"
+                  style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+                >
+                  New playlist
+                </h2>
+                <p className="mt-3 text-base font-semibold text-[#403c32] md:text-[20px]">
+                  0 Tracks
+                </p>
+              </div>
+
+              <div className="shrink-0">
+                <div className="flex h-9 w-9 flex-col items-center justify-center rounded-full opacity-50" aria-hidden="true">
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                  <span className="block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                </div>
+              </div>
+            </div>
             <div className="mt-5 flex aspect-square w-full items-center justify-center rounded-[12px] bg-[#c4d19f]/85 text-xl font-semibold text-[#556741]">
               Insert Image
             </div>
@@ -882,16 +898,26 @@ function PlaylistDetailPage() {
   if (playlistLoading) return <div style={{ padding: 40 }}>플레이리스트 로딩 중...</div>;
   if (!playlist) return <div style={{ padding: 40 }}>플레이리스트를 찾을 수 없습니다.</div>;
 
+  const sectionHeadingClass = "mb-2 mt-6 text-xl font-bold text-[#1f1c17] md:text-2xl";
+  const detailButtonClass =
+    "rounded-lg bg-[#d9d1ba] px-4 py-2 text-sm font-semibold text-[#2f2a21] transition hover:bg-[#cbc2a8]";
+  const songCardClass = "mb-2 rounded-xl bg-[#ebe4d1] px-4 py-3";
+
   return (
     <div style={{ padding: 40 }}>
-      <button onClick={() => navigate("/")} style={{ marginBottom: 16 }}>
-        ← 뒤로가기
+      <button
+        type="button"
+        aria-label="뒤로 가기"
+        className="mb-4 rounded-lg bg-[#ebe4d1] px-3 py-2 text-lg font-bold text-[#2f2a21]"
+        onClick={() => navigate("/")}
+      >
+        ←
       </button>
 
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-3xl font-bold">{playlist.title}</h1>
         <button
-          className="rounded-lg border border-blue-500 bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+          className={detailButtonClass}
           onClick={copySongList}
         >
           목록 복사
@@ -899,14 +925,18 @@ function PlaylistDetailPage() {
         {copyMessage && <span className="text-sm text-slate-500">{copyMessage}</span>}
       </div>
       {playlist.thumbnail && (
-        <img
-          src={playlist.thumbnail}
-          alt={playlist.title}
-          style={{ width: 300, height: 150, objectFit: "cover", marginBottom: 16 }}
-        />
+        <div className="mb-7 mt-4 w-full max-w-[320px] rounded-[14px] bg-[#e1dac2] p-2">
+          <div className="aspect-square w-full overflow-hidden rounded-[10px] bg-[#c4d19f]/45">
+            <img
+              src={playlist.thumbnail}
+              alt={playlist.title}
+              className="h-full w-full object-contain"
+            />
+          </div>
+        </div>
       )}
 
-      <h2>iTunes에서 검색하여 추가</h2>
+      <h2 className={sectionHeadingClass}>iTunes에서 검색하여 추가</h2>
       <div style={{ marginBottom: 12 }}>
         <input
           placeholder="iTunes 검색어"
@@ -914,10 +944,11 @@ function PlaylistDetailPage() {
           onChange={(e) => setItunesQuery(e.target.value)}
           style={{ marginRight: 8 }}
         />
-        <button onClick={(e) => { e.preventDefault(); fetchItunes(); }} disabled={itunesLoading}>
+        <button className={detailButtonClass} onClick={(e) => { e.preventDefault(); fetchItunes(); }} disabled={itunesLoading}>
           {itunesLoading ? "검색중..." : "검색"}
         </button>
         <button
+          className={detailButtonClass}
           onClick={(e) => {
             e.preventDefault();
             handleCancelItunesSearch();
@@ -943,7 +974,7 @@ function PlaylistDetailPage() {
                   Math.floor((track.trackTimeMillis % 60000) / 1000)
                 ).padStart(2, "0")}
               </div>
-              <button onClick={() => handleAddItunesTrack(track)} style={{ marginTop: 8 }}>
+              <button className={detailButtonClass} onClick={() => handleAddItunesTrack(track)} style={{ marginTop: 8 }}>
                 추가
               </button>
             </div>
@@ -951,7 +982,7 @@ function PlaylistDetailPage() {
         </div>
       )}
 
-      <h2>직접 입력해서 추가</h2>
+      <h2 className={sectionHeadingClass}>직접 입력해서 추가</h2>
       <form onSubmit={handleSubmit}>
         <input
           placeholder="곡 제목"
@@ -971,12 +1002,12 @@ function PlaylistDetailPage() {
           onChange={(e) => setLink(e.target.value)}
           style={{ marginRight: 8 }}
         />
-        <button type="submit">추가</button>
+        <button type="submit" className={detailButtonClass}>추가</button>
       </form>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <h2>음악 목록</h2>
+      <h2 className={sectionHeadingClass}>음악 목록</h2>
       <input
         placeholder="검색"
         value={search}
@@ -990,39 +1021,40 @@ function PlaylistDetailPage() {
         <p>음악이 없습니다.</p>
       ) : (
         filteredSongs.map((song) => (
-          <div key={song.id} style={{ border: "1px solid #ddd", padding: 12, marginBottom: 8 }}>
+          <div key={song.id} className={songCardClass}>
             {editingId === song.id ? (
-              <>
-                <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} style={{ marginRight: 8 }} />
-                <input value={editingArtist} onChange={(e) => setEditingArtist(e.target.value)} style={{ marginRight: 8 }} />
-                <input value={editingLink} onChange={(e) => setEditingLink(e.target.value)} style={{ marginRight: 8 }} />
-              </>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} style={{ marginRight: 8 }} />
+                  <input value={editingArtist} onChange={(e) => setEditingArtist(e.target.value)} style={{ marginRight: 8 }} />
+                  <input value={editingLink} onChange={(e) => setEditingLink(e.target.value)} style={{ marginRight: 8 }} />
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2">
+                  <button className={detailButtonClass} onClick={() => handleUpdate(song.id)}>저장</button>
+                  <button className={detailButtonClass} onClick={() => setEditingId(null)}>취소</button>
+                </div>
+              </div>
             ) : (
-              <>
-                <h3>{song.title}</h3>
-                <p>{song.artist}</p>
-                {song.youtube_url && (
-                  <a href={song.youtube_url} target="_blank" rel="noreferrer">
-                    링크
-                  </a>
-                )}
-              </>
-            )}
-            {editingId === song.id ? (
-              <>
-                <button onClick={() => handleUpdate(song.id)} style={{ marginRight: 8 }}>저장</button>
-                <button onClick={() => setEditingId(null)}>취소</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => handleDelete(song.id)} style={{ marginRight: 8 }}>삭제</button>
-                <button onClick={() => {
-                  setEditingId(song.id);
-                  setEditingTitle(song.title);
-                  setEditingArtist(song.artist);
-                  setEditingLink(song.youtube_url || "");
-                }}>수정</button>
-              </>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-[#1f1c17] md:text-xl">{song.title}</h3>
+                  <p className="mt-1 text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
+                  {song.youtube_url && (
+                    <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#5e6f44] hover:underline">
+                      LINK
+                    </a>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2">
+                  <button onClick={() => {
+                    setEditingId(song.id);
+                    setEditingTitle(song.title);
+                    setEditingArtist(song.artist);
+                    setEditingLink(song.youtube_url || "");
+                  }} className={detailButtonClass}>수정</button>
+                  <button className={detailButtonClass} onClick={() => handleDelete(song.id)}>삭제</button>
+                </div>
+              </div>
             )}
           </div>
         ))
