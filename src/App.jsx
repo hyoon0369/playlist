@@ -37,11 +37,11 @@ function PlaylistListPage() {
   const [modalMode, setModalMode] = useState(null);
   const addFileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
+  const playlistFetchRequestRef = useRef(0);
 
   const fetchSongCounts = async (playlistIds) => {
     if (!playlistIds.length) {
-      setSongCountByPlaylist({});
-      return;
+      return {};
     }
 
     const { data, error } = await supabase
@@ -51,7 +51,7 @@ function PlaylistListPage() {
 
     if (error) {
       console.error(error);
-      return;
+      return null;
     }
 
     const counts = (data || []).reduce((acc, song) => {
@@ -60,10 +60,13 @@ function PlaylistListPage() {
       return acc;
     }, {});
 
-    setSongCountByPlaylist(counts);
+    return counts;
   };
 
   const fetchPlaylists = async () => {
+    const requestId = playlistFetchRequestRef.current + 1;
+    playlistFetchRequestRef.current = requestId;
+
     setPlaylistsLoading(true);
     setPlaylistsError("");
 
@@ -71,6 +74,10 @@ function PlaylistListPage() {
       .from("playlists")
       .select("*")
       .order("created_at", { ascending: false });
+
+    if (requestId !== playlistFetchRequestRef.current) {
+      return;
+    }
 
     if (error) {
       console.error(error);
@@ -84,11 +91,18 @@ function PlaylistListPage() {
           created_at: item.created_at || null,
         }));
 
+      const counts = await fetchSongCounts(normalizedPlaylists.map((item) => item.id));
+      if (requestId !== playlistFetchRequestRef.current) {
+        return;
+      }
+
       setPlaylists(normalizedPlaylists);
-      await fetchSongCounts(normalizedPlaylists.map((item) => item.id));
+      setSongCountByPlaylist(counts || {});
     }
 
-    setPlaylistsLoading(false);
+    if (requestId === playlistFetchRequestRef.current) {
+      setPlaylistsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -99,7 +113,7 @@ function PlaylistListPage() {
       if (!disposed) {
         fetchPlaylists();
       }
-    }, 700);
+    }, 1200);
 
     return () => {
       disposed = true;
@@ -116,12 +130,17 @@ function PlaylistListPage() {
         fetchPlaylists();
       }
     };
+    const handlePageShow = () => {
+      fetchPlaylists();
+    };
 
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handlePageShow);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
@@ -895,16 +914,25 @@ function PlaylistDetailPage() {
   };
 
   const handleDelete = async (id) => {
+    setError("");
     setSongMutating(true);
 
     try {
-      const { error } = await supabase.from("songs").delete().eq("id", id);
+      const { data: deletedRows, error } = await supabase
+        .from("songs")
+        .delete()
+        .eq("id", id)
+        .select("id");
 
       if (error) {
         console.error(error);
         setError("삭제 실패");
+      } else if (!deletedRows || deletedRows.length === 0) {
+        // RLS 등으로 삭제 권한이 없으면 error 없이 0 row가 반환될 수 있다.
+        setError("삭제 권한이 없거나 삭제 대상이 없습니다.");
+        await fetchSongs();
       } else {
-        setSongs((prev) => prev.filter((song) => song.id !== id));
+        await fetchSongs();
       }
     } finally {
       setSongMutating(false);
