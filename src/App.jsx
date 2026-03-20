@@ -423,7 +423,7 @@ function PlaylistListPage() {
       {playlistsLoading ? (
         <p className="mx-auto w-full max-w-[1280px] text-lg font-medium text-[#4e4a40]">플레이리스트 로딩 중...</p>
       ) : (
-        <section className="mx-auto grid w-full max-w-[1280px] grid-cols-3 auto-rows-fr gap-8">
+        <section className="mx-auto grid w-full max-w-[1280px] grid-cols-1 auto-rows-fr gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           {playlists.map((pl) => (
             <article
               key={pl.playlist_id}
