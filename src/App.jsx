@@ -428,7 +428,7 @@ function PlaylistListPage() {
           {playlists.map((pl) => (
             <article
               key={pl.playlist_id}
-              className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
+              className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 ease-out hover:scale-[1.015] hover:bg-[#ece4ce] hover:z-10"
               onClick={() => navigate(`/${pl.id}`)}
             >
               <div className="flex items-start justify-between gap-4">
@@ -494,7 +494,7 @@ function PlaylistListPage() {
           ))}
 
           <article
-            className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
+            className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 ease-out hover:scale-[1.015] hover:bg-[#ece4ce] hover:z-10"
             onClick={openAddPlaylistModal}
           >
             <div className="flex items-start justify-between gap-4">
