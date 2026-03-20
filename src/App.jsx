@@ -92,8 +92,39 @@ function PlaylistListPage() {
   };
 
   useEffect(() => {
+    let disposed = false;
+
     fetchPlaylists();
+    const delayedRefetch = setTimeout(() => {
+      if (!disposed) {
+        fetchPlaylists();
+      }
+    }, 700);
+
+    return () => {
+      disposed = true;
+      clearTimeout(delayedRefetch);
+    };
   }, [location.key]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchPlaylists();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchPlaylists();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const sanitizeFileName = (originalName) => {
     const ext = originalName.split(".").pop() || "jpg";
@@ -672,6 +703,7 @@ function PlaylistDetailPage() {
   const [editingArtist, setEditingArtist] = useState("");
   const [editingLink, setEditingLink] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const [songMutating, setSongMutating] = useState(false);
 
   const fetchPlaylist = async () => {
     const { data, error } = await supabase
@@ -762,24 +794,29 @@ function PlaylistDetailPage() {
 
   const handleAddItunesTrack = async (track) => {
     setError("");
+    setSongMutating(true);
 
-    const { error: insertError } = await supabase.from("songs").insert([
-      {
-        title: track.trackName || "",
-        artist: track.artistName || "",
-        youtube_url: track.trackViewUrl || track.previewUrl || null,
-        playlist_id: parseInt(playlistId),
-      },
-    ]);
+    try {
+      const { error: insertError } = await supabase.from("songs").insert([
+        {
+          title: track.trackName || "",
+          artist: track.artistName || "",
+          youtube_url: track.trackViewUrl || track.previewUrl || null,
+          playlist_id: parseInt(playlistId),
+        },
+      ]);
 
-    if (insertError) {
-      console.error(insertError);
-      setError("트랙 추가 실패");
-      return;
+      if (insertError) {
+        console.error(insertError);
+        setError("트랙 추가 실패");
+        return;
+      }
+
+      setItunesResults((prev) => prev.filter((item) => item.trackId !== track.trackId));
+      fetchSongs();
+    } finally {
+      setSongMutating(false);
     }
-
-    setItunesResults((prev) => prev.filter((item) => item.trackId !== track.trackId));
-    fetchSongs();
   };
 
   const copySongList = async () => {
@@ -831,67 +868,85 @@ function PlaylistDetailPage() {
       return;
     }
 
-    const { error } = await supabase.from("songs").insert([
-      {
-        title,
-        artist,
-        youtube_url: link || null,
-        playlist_id: parseInt(playlistId),
-      },
-    ]);
+    setSongMutating(true);
 
-    if (error) {
-      console.error(error);
-      setError("추가 실패");
-    } else {
-      setTitle("");
-      setArtist("");
-      setLink("");
-      fetchSongs();
+    try {
+      const { error } = await supabase.from("songs").insert([
+        {
+          title,
+          artist,
+          youtube_url: link || null,
+          playlist_id: parseInt(playlistId),
+        },
+      ]);
+
+      if (error) {
+        console.error(error);
+        setError("추가 실패");
+      } else {
+        setTitle("");
+        setArtist("");
+        setLink("");
+        fetchSongs();
+      }
+    } finally {
+      setSongMutating(false);
     }
   };
 
   const handleDelete = async (id) => {
-    const { error } = await supabase.from("songs").delete().eq("id", id);
+    setSongMutating(true);
 
-    if (error) {
-      console.error(error);
-      setError("삭제 실패");
-    } else {
-      setSongs(songs.filter((song) => song.id !== id));
+    try {
+      const { error } = await supabase.from("songs").delete().eq("id", id);
+
+      if (error) {
+        console.error(error);
+        setError("삭제 실패");
+      } else {
+        setSongs((prev) => prev.filter((song) => song.id !== id));
+      }
+    } finally {
+      setSongMutating(false);
     }
   };
 
   const handleUpdate = async (id) => {
-    const { error } = await supabase
-      .from("songs")
-      .update({
-        title: editingTitle,
-        artist: editingArtist,
-        youtube_url: editingLink || null,
-      })
-      .eq("id", id);
+    setSongMutating(true);
 
-    if (error) {
-      console.error(error);
-      setError("업데이트 실패");
-    } else {
-      setSongs(
-        songs.map((song) =>
-          song.id === id
-            ? {
-                ...song,
-                title: editingTitle,
-                artist: editingArtist,
-                youtube_url: editingLink || null,
-              }
-            : song
-        )
-      );
-      setEditingId(null);
-      setEditingTitle("");
-      setEditingArtist("");
-      setEditingLink("");
+    try {
+      const { error } = await supabase
+        .from("songs")
+        .update({
+          title: editingTitle,
+          artist: editingArtist,
+          youtube_url: editingLink || null,
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        setError("업데이트 실패");
+      } else {
+        setSongs((prev) =>
+          prev.map((song) =>
+            song.id === id
+              ? {
+                  ...song,
+                  title: editingTitle,
+                  artist: editingArtist,
+                  youtube_url: editingLink || null,
+                }
+              : song
+          )
+        );
+        setEditingId(null);
+        setEditingTitle("");
+        setEditingArtist("");
+        setEditingLink("");
+      }
+    } finally {
+      setSongMutating(false);
     }
   };
 
@@ -900,7 +955,7 @@ function PlaylistDetailPage() {
 
   const sectionHeadingClass = "mb-2 mt-6 text-xl font-bold text-[#1f1c17] md:text-2xl";
   const detailButtonClass =
-    "rounded-lg bg-[#d9d1ba] px-4 py-2 text-sm font-semibold text-[#2f2a21] transition hover:bg-[#cbc2a8]";
+    "rounded-lg bg-[#d9d1ba] px-4 py-2 text-sm font-semibold text-[#2f2a21] transition hover:bg-[#cbc2a8] disabled:cursor-not-allowed disabled:opacity-60";
   const songCardClass = "mb-2 rounded-xl bg-[#ebe4d1] px-4 py-3";
 
   return (
@@ -908,8 +963,9 @@ function PlaylistDetailPage() {
       <button
         type="button"
         aria-label="뒤로 가기"
-        className="mb-4 rounded-lg bg-[#ebe4d1] px-3 py-2 text-lg font-bold text-[#2f2a21]"
-        onClick={() => navigate("/")}
+        className="mb-4 rounded-lg bg-[#ebe4d1] px-3 py-2 text-lg font-bold text-[#2f2a21] disabled:cursor-not-allowed disabled:opacity-60"
+        onClick={() => navigate("/", { state: { refreshedAt: Date.now() } })}
+        disabled={songMutating}
       >
         ←
       </button>
