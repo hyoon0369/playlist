@@ -444,14 +444,21 @@ function PlaylistDetailPage() {
   const [songs, setSongs] = useState([]);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
-  const [youtube, setYoutube] = useState("");
+  const [link, setLink] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [itunesQuery, setItunesQuery] = useState("");
+  const [itunesResults, setItunesResults] = useState([]);
+  const [itunesLoading, setItunesLoading] = useState(false);
+  const [itunesError, setItunesError] = useState("");
+
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingArtist, setEditingArtist] = useState("");
-  const [editingYoutube, setEditingYoutube] = useState("");
+  const [editingLink, setEditingLink] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
 
   const fetchPlaylist = async () => {
     const { data, error } = await supabase
@@ -485,6 +492,79 @@ function PlaylistDetailPage() {
     setLoading(false);
   };
 
+  const fetchItunes = async () => {
+    if (!itunesQuery.trim()) {
+      setItunesError("검색어를 입력하세요.");
+      return;
+    }
+
+    setItunesError("");
+    setItunesLoading(true);
+    setItunesResults([]);
+
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(itunesQuery)}&entity=song&limit=12`
+      );
+      if (!response.ok) {
+        throw new Error(`iTunes 검색 실패: ${response.status}`);
+      }
+      const data = await response.json();
+      setItunesResults(data.results || []);
+      if (!data.results || data.results.length === 0) {
+        setItunesError("검색 결과가 없습니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      setItunesError("iTunes 검색 중 오류가 발생했습니다.");
+    } finally {
+      setItunesLoading(false);
+    }
+  };
+
+  const handleAddItunesTrack = async (track) => {
+    setError("");
+
+    const { error: insertError } = await supabase.from("songs").insert([
+      {
+        title: track.trackName || "",
+        artist: track.artistName || "",
+        youtube_url: track.trackViewUrl || track.previewUrl || null,
+        playlist_id: parseInt(playlistId),
+      },
+    ]);
+
+    if (insertError) {
+      console.error(insertError);
+      setError("트랙 추가 실패");
+      return;
+    }
+
+    setItunesResults((prev) => prev.filter((item) => item.trackId !== track.trackId));
+    fetchSongs();
+  };
+
+  const copySongList = async () => {
+    if (!songs.length) {
+      setCopyMessage("복사할 음악이 없습니다.");
+      return;
+    }
+
+    const text = songs
+      .map((song) => `${song.title || ""} | ${song.artist || ""}`)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyMessage("클립보드에 복사되었습니다.");
+    } catch (copyError) {
+      console.error(copyError);
+      setCopyMessage("복사에 실패했습니다. 텍스트를 수동으로 선택하세요.");
+    }
+
+    setTimeout(() => setCopyMessage(""), 3000);
+  };
+
   useEffect(() => {
     fetchPlaylist();
     fetchSongs();
@@ -511,7 +591,7 @@ function PlaylistDetailPage() {
       {
         title,
         artist,
-        youtube_url: youtube || null,
+        youtube_url: link || null,
         playlist_id: parseInt(playlistId),
       },
     ]);
@@ -522,7 +602,7 @@ function PlaylistDetailPage() {
     } else {
       setTitle("");
       setArtist("");
-      setYoutube("");
+      setLink("");
       fetchSongs();
     }
   };
@@ -544,7 +624,7 @@ function PlaylistDetailPage() {
       .update({
         title: editingTitle,
         artist: editingArtist,
-        youtube_url: editingYoutube || null,
+        youtube_url: editingLink || null,
       })
       .eq("id", id);
 
@@ -559,7 +639,7 @@ function PlaylistDetailPage() {
                 ...song,
                 title: editingTitle,
                 artist: editingArtist,
-                youtube_url: editingYoutube || null,
+                youtube_url: editingLink || null,
               }
             : song
         )
@@ -567,7 +647,7 @@ function PlaylistDetailPage() {
       setEditingId(null);
       setEditingTitle("");
       setEditingArtist("");
-      setEditingYoutube("");
+      setEditingLink("");
     }
   };
 
@@ -580,7 +660,16 @@ function PlaylistDetailPage() {
         ← 뒤로가기
       </button>
 
-      <h1>{playlist.title}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-bold">{playlist.title}</h1>
+        <button
+          className="rounded-lg border border-blue-500 bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+          onClick={copySongList}
+        >
+          목록 복사
+        </button>
+        {copyMessage && <span className="text-sm text-slate-500">{copyMessage}</span>}
+      </div>
       {playlist.thumbnail && (
         <img
           src={playlist.thumbnail}
@@ -589,7 +678,43 @@ function PlaylistDetailPage() {
         />
       )}
 
-      <h2>음악 추가</h2>
+      <h2>iTunes에서 검색하여 추가</h2>
+      <div style={{ marginBottom: 12 }}>
+        <input
+          placeholder="iTunes 검색어"
+          value={itunesQuery}
+          onChange={(e) => setItunesQuery(e.target.value)}
+          style={{ marginRight: 8 }}
+        />
+        <button onClick={(e) => { e.preventDefault(); fetchItunes(); }} disabled={itunesLoading}>
+          {itunesLoading ? "검색중..." : "검색"}
+        </button>
+      </div>
+      {itunesError && <p style={{ color: "red" }}>{itunesError}</p>}
+      {itunesResults.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          {itunesResults.map((track) => (
+            <div
+              key={track.trackId}
+              style={{ border: "1px solid #ddd", padding: 8, marginBottom: 6 }}
+            >
+              <div>
+                <strong>{track.trackName}</strong> - {track.artistName}
+              </div>
+              <div style={{ fontSize: 12, color: "#555" }}>
+                {track.collectionName} | {Math.floor(track.trackTimeMillis / 60000)}:{String(
+                  Math.floor((track.trackTimeMillis % 60000) / 1000)
+                ).padStart(2, "0")}
+              </div>
+              <button onClick={() => handleAddItunesTrack(track)} style={{ marginTop: 8 }}>
+                추가
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2>직접 입력해서 추가</h2>
       <form onSubmit={handleSubmit}>
         <input
           placeholder="곡 제목"
@@ -605,8 +730,8 @@ function PlaylistDetailPage() {
         />
         <input
           placeholder="링크"
-          value={youtube}
-          onChange={(e) => setYoutube(e.target.value)}
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
           style={{ marginRight: 8 }}
         />
         <button type="submit">추가</button>
@@ -633,7 +758,7 @@ function PlaylistDetailPage() {
               <>
                 <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} style={{ marginRight: 8 }} />
                 <input value={editingArtist} onChange={(e) => setEditingArtist(e.target.value)} style={{ marginRight: 8 }} />
-                <input value={editingYoutube} onChange={(e) => setEditingYoutube(e.target.value)} style={{ marginRight: 8 }} />
+                <input value={editingLink} onChange={(e) => setEditingLink(e.target.value)} style={{ marginRight: 8 }} />
               </>
             ) : (
               <>
@@ -658,7 +783,7 @@ function PlaylistDetailPage() {
                   setEditingId(song.id);
                   setEditingTitle(song.title);
                   setEditingArtist(song.artist);
-                  setEditingYoutube(song.youtube_url || "");
+                  setEditingLink(song.youtube_url || "");
                 }}>수정</button>
               </>
             )}
