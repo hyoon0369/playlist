@@ -334,6 +334,7 @@ function PlaylistListPage() {
 
   const openAddPlaylistModal = () => {
     handleCancelAddPlaylist();
+    setNewPlaylistTitle("Empty");
     setModalMode("add");
     setOpenMenuId(null);
   };
@@ -393,12 +394,12 @@ function PlaylistListPage() {
     >
       <header className="mx-auto mb-10 w-full max-w-[1280px]">
         <h1
-          className="text-5xl leading-none tracking-tight text-[#1d1a14] md:text-8xl"
+          className="text-[56px] leading-none tracking-tight text-[#1d1a14] md:text-[60pt]"
           style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
         >
           Mayonnaise
         </h1>
-        <p className="mt-2 text-lg font-semibold text-[#4b473d] md:text-2xl">Share your musics - for Mayan</p>
+        <p className="mt-5 text-lg font-semibold text-[#4b473d] md:text-2xl">Share your musics</p>
       </header>
 
       <div className="mx-auto w-full max-w-[1280px]">
@@ -426,13 +427,13 @@ function PlaylistListPage() {
           {playlists.map((pl) => (
             <article
               key={pl.playlist_id}
-              className="relative flex h-full cursor-pointer flex-col rounded-[24px] border border-[#d8d0b6] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
+              className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
               onClick={() => navigate(`/${pl.id}`)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 pr-2">
                   <h2
-                    className="line-clamp-2 text-[38px] leading-[0.95] text-[#1e1b16] md:text-[52px]"
+                    className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#1e1b16] md:text-[30px] lg:text-[34px]"
                     style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
                   >
                     {pl.title}
@@ -477,7 +478,7 @@ function PlaylistListPage() {
                 </div>
               </div>
 
-              <div className="mt-5 aspect-square w-full overflow-hidden rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]">
+              <div className="mt-5 aspect-square w-full overflow-hidden rounded-[12px] bg-[#c4d19f]">
                 {pl.thumbnail ? (
                   <img
                     src={pl.thumbnail}
@@ -485,25 +486,23 @@ function PlaylistListPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-[#556741]">
-                    Insert Image
-                  </div>
+                  <div className="h-full w-full" aria-hidden="true" />
                 )}
               </div>
             </article>
           ))}
 
           <article
-            className="flex h-full cursor-pointer flex-col rounded-[24px] border border-[#d8d0b6] bg-[#ebe4cd]/80 p-7 transition duration-200 hover:bg-[#ece4ce]"
+            className="flex h-full cursor-pointer flex-col rounded-[24px] bg-[#ebe4cd]/80 p-7 transition duration-200 hover:bg-[#ece4ce]"
             onClick={openAddPlaylistModal}
           >
             <h2
-              className="line-clamp-2 text-[38px] leading-[0.95] text-[#4a463d] md:text-[52px]"
+              className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#4a463d] md:text-[30px] lg:text-[34px]"
               style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
             >
               New playlist
             </h2>
-            <div className="mt-5 flex aspect-square w-full items-center justify-center rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]/85 text-xl font-semibold text-[#556741]">
+            <div className="mt-5 flex aspect-square w-full items-center justify-center rounded-[12px] bg-[#c4d19f]/85 text-xl font-semibold text-[#556741]">
               Insert Image
             </div>
           </article>
@@ -516,82 +515,94 @@ function PlaylistListPage() {
           onClick={closePlaylistModal}
         >
           <div
-            className="w-full max-w-[500px] rounded-[22px] border border-[#d8d0b6] bg-[#f5f0e0] p-8"
+            className="w-full max-w-[500px]"
+            style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <input
-              className="w-full bg-transparent text-[44px] leading-[0.95] text-[#1d1a14] outline-none md:text-[64px]"
-              style={{ fontFamily: "'Noto Serif KR', serif" }}
-              placeholder={modalMode === "edit" ? "Edit playlist" : "New playlist"}
-              value={modalTitleValue}
-              onChange={(e) => modalTitleSetter(e.target.value)}
-              disabled={playlistUploading}
-            />
-
-            {!modalTitleValue.trim() && (
-              <p className="mt-2 text-sm font-medium text-[#a44949]">필수 입력 항목입니다.</p>
-            )}
-
-            <p className="mt-2 text-[30px] leading-none font-semibold text-[#464135] md:text-[44px]">
-              {currentModalPlaylistCount} Tracks
-            </p>
-
-            <div className="mt-4 hidden">
+            <div className="rounded-[22px] bg-[#f5f0e0] p-8">
               <input
-                ref={addFileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handlePlaylistFileChange}
+                className="w-full bg-transparent text-[34px] font-bold leading-[1.08] text-[#1d1a14] outline-none md:text-[48px]"
+                placeholder={modalMode === "edit" ? "Edit playlist" : "New playlist"}
+                value={modalTitleValue}
+                onChange={(e) => modalTitleSetter(e.target.value)}
                 disabled={playlistUploading}
               />
-              <input
-                ref={editFileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleEditFileChange}
-                disabled={playlistUploading}
-              />
+
+              {!modalTitleValue.trim() && (
+                <p className="mt-1 text-xs font-semibold text-[#a44949]">필수 입력 항목입니다.</p>
+              )}
+
+              <p className="mt-2 text-base font-bold text-[#5f594c] md:text-lg">
+                {currentModalPlaylistCount} Tracks
+              </p>
+
+              <div className="hidden">
+                <input
+                  ref={addFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePlaylistFileChange}
+                  disabled={playlistUploading}
+                />
+                <input
+                  ref={editFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEditFileChange}
+                  disabled={playlistUploading}
+                />
+              </div>
+
+              <div
+                role="button"
+                tabIndex={playlistUploading ? -1 : 0}
+                aria-disabled={playlistUploading}
+                className="relative mt-4 block aspect-square w-full overflow-hidden rounded-[12px] bg-[#c4d19f]"
+                onClick={() => {
+                  if (!playlistUploading) triggerModalFilePicker();
+                }}
+                onKeyDown={(e) => {
+                  if (playlistUploading) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    triggerModalFilePicker();
+                  }
+                }}
+              >
+                {modalPreviewImage ? (
+                  <img
+                    src={modalPreviewImage}
+                    alt="playlist preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-5xl font-semibold text-[#4f6039]">
+                    Insert Image
+                  </div>
+                )}
+                {modalPreviewImage && (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 rounded-lg border border-[#d9d0b4] bg-[#f5f0e0]/90 px-2 py-1 text-xs font-bold text-[#2f3b1f]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (modalMode === "edit") {
+                        handleRemoveEditingImage();
+                      } else {
+                        handleRemoveSelectedImage();
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
 
-            <button
-              type="button"
-              className="relative mt-4 block aspect-square w-full overflow-hidden rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]"
-              onClick={triggerModalFilePicker}
-              disabled={playlistUploading}
-            >
-              {modalPreviewImage ? (
-                <img
-                  src={modalPreviewImage}
-                  alt="playlist preview"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-5xl font-semibold text-[#4f6039]">
-                  Insert Image
-                </div>
-              )}
-              {modalPreviewImage && (
-                <span
-                  className="absolute right-4 top-4 rounded-full bg-[#f5f0e0]/80 px-2 text-xl font-bold text-[#2f3b1f]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (modalMode === "edit") {
-                      handleRemoveEditingImage();
-                    } else {
-                      handleRemoveSelectedImage();
-                    }
-                  }}
-                >
-                  ×
-                </span>
-              )}
-            </button>
-
-            <div className="mt-7 flex justify-end gap-3">
+            <div className="mt-3 flex items-center justify-between gap-3 px-1">
               <button
                 type="button"
-                className="rounded-xl border border-[#cfc7ad] bg-[#efe9d5] px-5 py-3 text-4xl font-bold text-[#312d24] transition hover:bg-[#e7e0c9] md:text-5xl"
-                style={{ fontFamily: "'Noto Serif KR', serif" }}
+                className="rounded-xl border border-[#cfc7ad] bg-[#efe9d5] px-6 py-2 text-2xl font-bold text-[#312d24] transition hover:bg-[#e7e0c9] md:text-3xl"
                 onClick={closePlaylistModal}
                 disabled={playlistUploading}
               >
@@ -599,9 +610,8 @@ function PlaylistListPage() {
               </button>
               <button
                 type="button"
-                className="rounded-xl border-0 px-5 py-3 text-4xl font-bold transition md:text-5xl"
+                className="rounded-xl border-0 px-6 py-2 text-2xl font-bold transition md:text-3xl"
                 style={{
-                  fontFamily: "'Noto Serif KR', serif",
                   backgroundColor: saveDisabled ? "#cbc4ad" : "#6d8050",
                   color: saveDisabled ? "#716b5a" : "#f6f2e7",
                   cursor: saveDisabled ? "not-allowed" : "pointer",
