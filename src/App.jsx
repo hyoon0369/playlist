@@ -17,6 +17,7 @@ export default function App() {
 function PlaylistListPage() {
   const navigate = useNavigate();
   const [playlists, setPlaylists] = useState([]);
+  const [songCountByPlaylist, setSongCountByPlaylist] = useState({});
   const [playlistsLoading, setPlaylistsLoading] = useState(true);
   const [playlistsError, setPlaylistsError] = useState("");
   const [newPlaylistTitle, setNewPlaylistTitle] = useState("");
@@ -31,6 +32,35 @@ function PlaylistListPage() {
   const [editingPlaylistThumbnail, setEditingPlaylistThumbnail] = useState("");
   const [editingPlaylistFile, setEditingPlaylistFile] = useState(null);
   const [editingPlaylistPreview, setEditingPlaylistPreview] = useState("");
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [modalMode, setModalMode] = useState(null);
+  const addFileInputRef = useRef(null);
+  const editFileInputRef = useRef(null);
+
+  const fetchSongCounts = async (playlistIds) => {
+    if (!playlistIds.length) {
+      setSongCountByPlaylist({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("songs")
+      .select("playlist_id")
+      .in("playlist_id", playlistIds);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const counts = (data || []).reduce((acc, song) => {
+      const key = song.playlist_id;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    setSongCountByPlaylist(counts);
+  };
 
   const fetchPlaylists = async () => {
     setPlaylistsLoading(true);
@@ -45,14 +75,16 @@ function PlaylistListPage() {
       console.error(error);
       setPlaylistsError("플레이리스트 불러오기 실패");
     } else {
-      setPlaylists(
-        data.map((item) => ({
+      const normalizedPlaylists = (data || []).map((item) => ({
           id: item.id,
           playlist_id: item.id?.toString() || `pl-${Date.now()}`,
           title: item.title,
           thumbnail: item.thumbnail || "",
-        }))
-      );
+          created_at: item.created_at || null,
+        }));
+
+      setPlaylists(normalizedPlaylists);
+      await fetchSongCounts(normalizedPlaylists.map((item) => item.id));
     }
 
     setPlaylistsLoading(false);
@@ -111,8 +143,7 @@ function PlaylistListPage() {
     setNewPlaylistPreview("");
   };
 
-  const handleCancelAddPlaylist = (e) => {
-    e.preventDefault();
+  const handleCancelAddPlaylist = () => {
     if (newPlaylistPreview) {
       URL.revokeObjectURL(newPlaylistPreview);
     }
@@ -123,8 +154,7 @@ function PlaylistListPage() {
     setPlaylistSuccess("");
   };
 
-  const handleAddPlaylist = async (e) => {
-    e.preventDefault();
+  const handleAddPlaylist = async () => {
     setPlaylistError("");
     setPlaylistSuccess("");
 
@@ -154,6 +184,7 @@ function PlaylistListPage() {
         playlist_id: data.id?.toString() || `pl-${Date.now()}`,
         title: data.title,
         thumbnail: data.thumbnail || "",
+        created_at: data.created_at || null,
       };
 
       setPlaylists((prev) => [addedPlaylist, ...prev]);
@@ -163,6 +194,8 @@ function PlaylistListPage() {
         URL.revokeObjectURL(newPlaylistPreview);
         setNewPlaylistPreview("");
       }
+      setSongCountByPlaylist((prev) => ({ ...prev, [data.id]: 0 }));
+      setModalMode(null);
       setPlaylistSuccess("플레이리스트가 성공적으로 추가되었습니다.");
     } catch (uploadError) {
       console.error(uploadError);
@@ -178,6 +211,8 @@ function PlaylistListPage() {
     setEditingPlaylistThumbnail(playlist.thumbnail);
     setEditingPlaylistFile(null);
     setEditingPlaylistPreview("");
+    setOpenMenuId(null);
+    setModalMode("edit");
     setPlaylistError("");
     setPlaylistSuccess("");
   };
@@ -215,6 +250,7 @@ function PlaylistListPage() {
       URL.revokeObjectURL(editingPlaylistPreview);
       setEditingPlaylistPreview("");
     }
+    setModalMode(null);
     setPlaylistError("");
     setPlaylistSuccess("");
   };
@@ -255,15 +291,14 @@ function PlaylistListPage() {
                 ...pl,
                 title: data.title,
                 thumbnail: data.thumbnail || "",
+                created_at: data.created_at || pl.created_at,
               }
             : pl
         )
       );
 
       setPlaylistSuccess("플레이리스트가 성공적으로 수정되었습니다.");
-      setTimeout(() => {
-        handleCancelEditPlaylist();
-      }, 1000);
+      handleCancelEditPlaylist();
     } catch (updateError) {
       console.error(updateError);
       setPlaylistError("플레이리스트 수정 실패. 다시 시도해주세요.");
@@ -284,6 +319,12 @@ function PlaylistListPage() {
       }
 
       setPlaylists((prev) => prev.filter((pl) => pl.id !== id));
+      setSongCountByPlaylist((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setOpenMenuId(null);
       setPlaylistSuccess("플레이리스트가 삭제되었습니다.");
     } catch (error) {
       console.error(error);
@@ -291,144 +332,289 @@ function PlaylistListPage() {
     }
   };
 
+  const openAddPlaylistModal = () => {
+    handleCancelAddPlaylist();
+    setModalMode("add");
+    setOpenMenuId(null);
+  };
+
+  const closePlaylistModal = () => {
+    if (modalMode === "edit") {
+      handleCancelEditPlaylist();
+      return;
+    }
+    handleCancelAddPlaylist();
+    setModalMode(null);
+  };
+
+  const handleSaveModal = async () => {
+    if (modalMode === "edit") {
+      await handleSaveEditPlaylist();
+      return;
+    }
+    await handleAddPlaylist();
+  };
+
+  const saveDisabled =
+    playlistUploading ||
+    (modalMode === "edit"
+      ? !editingPlaylistTitle.trim()
+      : !newPlaylistTitle.trim());
+
+  const modalPreviewImage =
+    modalMode === "edit"
+      ? editingPlaylistPreview || editingPlaylistThumbnail
+      : newPlaylistPreview;
+
+  const modalTitleValue = modalMode === "edit" ? editingPlaylistTitle : newPlaylistTitle;
+
+  const modalTitleSetter = modalMode === "edit" ? setEditingPlaylistTitle : setNewPlaylistTitle;
+
+  const currentModalPlaylistCount =
+    modalMode === "edit" ? songCountByPlaylist[editingPlaylistId] || 0 : 0;
+
+  const triggerModalFilePicker = () => {
+    if (modalMode === "edit") {
+      editFileInputRef.current?.click();
+      return;
+    }
+    addFileInputRef.current?.click();
+  };
+
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Playlist</h1>
+    <div
+      className="min-h-screen px-6 py-8 text-[#1f1c17] md:px-10 lg:px-14"
+      style={{
+        fontFamily: "'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
+        backgroundColor: "#f3efdf",
+        backgroundImage: "linear-gradient(180deg, #f7f3e7 0%, #eee7d1 100%)",
+      }}
+      onClick={() => setOpenMenuId(null)}
+    >
+      <header className="mx-auto mb-10 w-full max-w-[1280px]">
+        <h1
+          className="text-5xl leading-none tracking-tight text-[#1d1a14] md:text-8xl"
+          style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+        >
+          Mayonnaise
+        </h1>
+        <p className="mt-2 text-lg font-semibold text-[#4b473d] md:text-2xl">Share your musics - for Mayan</p>
+      </header>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2>플레이리스트</h2>
-        <form onSubmit={handleAddPlaylist} style={{ marginBottom: 12 }}>
-          <input
-            placeholder="플레이리스트 제목"
-            value={newPlaylistTitle}
-            onChange={(e) => setNewPlaylistTitle(e.target.value)}
-            style={{ marginRight: 8 }}
-            disabled={playlistUploading}
-          />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handlePlaylistFileChange}
-            disabled={playlistUploading}
-          />
-          <button type="submit" style={{ marginLeft: 8 }} disabled={playlistUploading}>
-            {playlistUploading ? "업로드 중..." : "추가"}
-          </button>
-          <button
-            type="button"
-            onClick={handleCancelAddPlaylist}
-            style={{ marginLeft: 8 }}
-            disabled={playlistUploading}
-          >
-            취소
-          </button>
-        </form>
-
-        {newPlaylistPreview && (
-          <div style={{ marginBottom: 8 }}>
-            <strong>선택된 썸네일 미리보기</strong>
-            <div>
-              <img
-                src={newPlaylistPreview}
-                alt="미리보기"
-                style={{ width: 240, height: 120, objectFit: "cover", marginTop: 4 }}
-              />
-            </div>
-            <button type="button" onClick={handleRemoveSelectedImage} disabled={playlistUploading}>
-              이미지 삭제
-            </button>
-          </div>
+      <div className="mx-auto w-full max-w-[1280px]">
+        {playlistsError && (
+          <p className="mb-3 rounded-xl border border-[#d9b8b1] bg-[#f3e4df] px-4 py-2 text-sm font-medium text-[#a44949]">
+            {playlistsError}
+          </p>
         )}
+        {playlistError && (
+          <p className="mb-3 rounded-xl border border-[#d9b8b1] bg-[#f3e4df] px-4 py-2 text-sm font-medium text-[#a44949]">
+            {playlistError}
+          </p>
+        )}
+        {playlistSuccess && (
+          <p className="mb-3 rounded-xl border border-[#bcc6a2] bg-[#e8edd8] px-4 py-2 text-sm font-medium text-[#4e6440]">
+            {playlistSuccess}
+          </p>
+        )}
+      </div>
 
-        {playlistError && <p style={{ color: "red" }}>{playlistError}</p>}
-        {playlistSuccess && <p style={{ color: "green" }}>{playlistSuccess}</p>}
-
-        {playlistsLoading ? (
-          <p>플레이리스트 로딩 중...</p>
-        ) : editingPlaylistId ? (
-          <div style={{ border: "2px solid #007bff", padding: 16, marginBottom: 12 }}>
-            <h3>플레이리스트 수정</h3>
-            <input
-              placeholder="플레이리스트 제목"
-              value={editingPlaylistTitle}
-              onChange={(e) => setEditingPlaylistTitle(e.target.value)}
-              style={{ marginRight: 8, marginBottom: 8 }}
-              disabled={playlistUploading}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleEditFileChange}
-              disabled={playlistUploading}
-              style={{ marginBottom: 8 }}
-            />
-
-            {(editingPlaylistPreview || editingPlaylistThumbnail) && (
-              <div style={{ marginBottom: 8 }}>
-                <strong>썸네일 미리보기</strong>
-                <div>
-                  <img
-                    src={editingPlaylistPreview || editingPlaylistThumbnail}
-                    alt="미리보기"
-                    style={{ width: 240, height: 120, objectFit: "cover", marginTop: 4 }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRemoveEditingImage}
-                  disabled={playlistUploading}
-                  style={{ marginRight: 8 }}
-                >
-                  이미지 삭제
-                </button>
-              </div>
-            )}
-
-            <div>
-              <button
-                onClick={handleSaveEditPlaylist}
-                disabled={playlistUploading}
-                style={{ marginRight: 8 }}
-              >
-                {playlistUploading ? "저장 중..." : "저장"}
-              </button>
-              <button onClick={handleCancelEditPlaylist} disabled={playlistUploading}>
-                취소
-              </button>
-            </div>
-
-            {playlistError && <p style={{ color: "red", marginTop: 8 }}>{playlistError}</p>}
-            {playlistSuccess && <p style={{ color: "green", marginTop: 8 }}>{playlistSuccess}</p>}
-          </div>
-        ) : playlists.length === 0 ? (
-          <p>플레이리스트가 없습니다. 추가해주세요.</p>
-        ) : (
-          playlists.map((pl) => (
-            <div
+      {playlistsLoading ? (
+        <p className="mx-auto w-full max-w-[1280px] text-lg font-medium text-[#4e4a40]">플레이리스트 로딩 중...</p>
+      ) : (
+        <section className="mx-auto grid w-full max-w-[1280px] grid-cols-3 auto-rows-fr gap-8">
+          {playlists.map((pl) => (
+            <article
               key={pl.playlist_id}
-              style={{ border: "1px solid #ccc", padding: 12, marginBottom: 8, cursor: "pointer" }}
+              className="relative flex h-full cursor-pointer flex-col rounded-[24px] border border-[#d8d0b6] bg-[#e8e1cb] p-7 transition duration-200 hover:bg-[#ece4ce]"
               onClick={() => navigate(`/${pl.id}`)}
             >
-              <h3>{pl.title}</h3>
-              {pl.thumbnail ? (
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 pr-2">
+                  <h2
+                    className="line-clamp-2 text-[38px] leading-[0.95] text-[#1e1b16] md:text-[52px]"
+                    style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+                  >
+                    {pl.title}
+                  </h2>
+                  <p className="mt-3 text-base font-semibold text-[#403c32] md:text-[20px]">
+                    {songCountByPlaylist[pl.id] || 0} Tracks
+                  </p>
+                </div>
+
+                <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 flex-col items-center justify-center rounded-full opacity-50 transition hover:bg-[#d5ceb1] hover:opacity-100"
+                    onClick={() =>
+                      setOpenMenuId((prev) => (prev === pl.id ? null : pl.id))
+                    }
+                    aria-label="playlist menu"
+                  >
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                    <span className="block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                  </button>
+
+                  {openMenuId === pl.id && (
+                    <div className="absolute right-0 top-11 z-20 w-36 rounded-xl border border-[#d2caae] bg-[#f5f1e2] p-2 shadow-[0_2px_8px_rgba(58,50,34,0.12)]">
+                      <button
+                        type="button"
+                        className="mb-1 w-full rounded-lg px-3 py-2 text-left font-semibold text-[#2c291f] hover:bg-[#e6dfc8]"
+                        onClick={() => handleEditPlaylist(pl)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full rounded-lg px-3 py-2 text-left font-semibold text-[#9a4343] hover:bg-[#e6dfc8]"
+                        onClick={() => handleDeletePlaylist(pl.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5 aspect-square w-full overflow-hidden rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]">
+                {pl.thumbnail ? (
+                  <img
+                    src={pl.thumbnail}
+                    alt={pl.title}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-[#556741]">
+                    Insert Image
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+
+          <article
+            className="flex h-full cursor-pointer flex-col rounded-[24px] border border-[#d8d0b6] bg-[#ebe4cd]/80 p-7 transition duration-200 hover:bg-[#ece4ce]"
+            onClick={openAddPlaylistModal}
+          >
+            <h2
+              className="line-clamp-2 text-[38px] leading-[0.95] text-[#4a463d] md:text-[52px]"
+              style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+            >
+              New playlist
+            </h2>
+            <div className="mt-5 flex aspect-square w-full items-center justify-center rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]/85 text-xl font-semibold text-[#556741]">
+              Insert Image
+            </div>
+          </article>
+        </section>
+      )}
+
+      {modalMode && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e291f]/35 p-4 backdrop-blur-[1px]"
+          onClick={closePlaylistModal}
+        >
+          <div
+            className="w-full max-w-[500px] rounded-[22px] border border-[#d8d0b6] bg-[#f5f0e0] p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              className="w-full bg-transparent text-[44px] leading-[0.95] text-[#1d1a14] outline-none md:text-[64px]"
+              style={{ fontFamily: "'Noto Serif KR', serif" }}
+              placeholder={modalMode === "edit" ? "Edit playlist" : "New playlist"}
+              value={modalTitleValue}
+              onChange={(e) => modalTitleSetter(e.target.value)}
+              disabled={playlistUploading}
+            />
+
+            {!modalTitleValue.trim() && (
+              <p className="mt-2 text-sm font-medium text-[#a44949]">필수 입력 항목입니다.</p>
+            )}
+
+            <p className="mt-2 text-[30px] leading-none font-semibold text-[#464135] md:text-[44px]">
+              {currentModalPlaylistCount} Tracks
+            </p>
+
+            <div className="mt-4 hidden">
+              <input
+                ref={addFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePlaylistFileChange}
+                disabled={playlistUploading}
+              />
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleEditFileChange}
+                disabled={playlistUploading}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="relative mt-4 block aspect-square w-full overflow-hidden rounded-[12px] border border-[#b9c89a] bg-[#c4d19f]"
+              onClick={triggerModalFilePicker}
+              disabled={playlistUploading}
+            >
+              {modalPreviewImage ? (
                 <img
-                  src={pl.thumbnail}
-                  alt={pl.title}
-                  style={{ width: 240, height: 120, objectFit: "cover" }}
+                  src={modalPreviewImage}
+                  alt="playlist preview"
+                  className="h-full w-full object-cover"
                 />
               ) : (
-                <p>썸네일 없음</p>
+                <div className="flex h-full w-full items-center justify-center text-5xl font-semibold text-[#4f6039]">
+                  Insert Image
+                </div>
               )}
-              <button onClick={(e) => { e.stopPropagation(); handleEditPlaylist(pl); }} style={{ marginRight: 8 }}>
-                편집
+              {modalPreviewImage && (
+                <span
+                  className="absolute right-4 top-4 rounded-full bg-[#f5f0e0]/80 px-2 text-xl font-bold text-[#2f3b1f]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (modalMode === "edit") {
+                      handleRemoveEditingImage();
+                    } else {
+                      handleRemoveSelectedImage();
+                    }
+                  }}
+                >
+                  ×
+                </span>
+              )}
+            </button>
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-xl border border-[#cfc7ad] bg-[#efe9d5] px-5 py-3 text-4xl font-bold text-[#312d24] transition hover:bg-[#e7e0c9] md:text-5xl"
+                style={{ fontFamily: "'Noto Serif KR', serif" }}
+                onClick={closePlaylistModal}
+                disabled={playlistUploading}
+              >
+                Cancel
               </button>
-              <button onClick={(e) => { e.stopPropagation(); handleDeletePlaylist(pl.id); }}>
-                삭제
+              <button
+                type="button"
+                className="rounded-xl border-0 px-5 py-3 text-4xl font-bold transition md:text-5xl"
+                style={{
+                  fontFamily: "'Noto Serif KR', serif",
+                  backgroundColor: saveDisabled ? "#cbc4ad" : "#6d8050",
+                  color: saveDisabled ? "#716b5a" : "#f6f2e7",
+                  cursor: saveDisabled ? "not-allowed" : "pointer",
+                }}
+                onClick={handleSaveModal}
+                disabled={saveDisabled}
+              >
+                Save
               </button>
             </div>
-          ))
-        )}
-      </section>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -545,6 +731,7 @@ function PlaylistDetailPage() {
     setItunesLoading(false);
     setItunesError("");
     setItunesResults([]);
+    setItunesQuery("");
   };
 
   const handleAddItunesTrack = async (track) => {
