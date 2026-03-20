@@ -1,9 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --app-font: "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", "Roboto", sans-serif;
+  --button-border: 1px solid #cbd5e1;
+  --button-radius: 0.5rem;
+  --button-bg: #ffffff;
+  --button-hover-bg: #f8fafc;
+  --button-text: #1f2937;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  @apply bg-white text-slate-800 antialiased;
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  @apply bg-white text-slate-800;
+}
+
+button,
+input,
+select,
+textarea {
+  border: var(--button-border);
+  border-radius: var(--button-radius);
+  font: inherit;
+}
+
+button {
+  background: var(--button-bg);
+  color: var(--button-text);
+  transition: background-color 0.2s ease;
+}
+
+button:hover,
+button:focus {
+  background: var(--button-hover-bg);
 }
 
 .fade-in {
