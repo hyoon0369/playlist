@@ -731,6 +731,8 @@ function PlaylistDetailPage() {
   const [copyMessage, setCopyMessage] = useState("");
   const [songMutating, setSongMutating] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState("all");
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportLinks, setExportLinks] = useState([]);
 
   const platformOptions = [
     { value: "all", label: "모두 보기" },
@@ -765,6 +767,44 @@ function PlaylistDetailPage() {
     } catch {
       return "link";
     }
+  };
+
+  const extractAppleMusicSongId = (url) => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      // ?i=SONGID 형식
+      const i = parsed.searchParams.get("i");
+      if (i) return i;
+      // /album/name/ALBUMID 형식에서 마지막 숫자 추출 (단독 트랙 링크)
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const last = segments[segments.length - 1];
+      if (/^\d+$/.test(last)) return last;
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  const handleExportToAppleMusic = () => {
+    const appleSongs = songs.filter(
+      (song) => getLinkType(song.youtube_url) === "apple_music" && song.youtube_url
+    );
+
+    if (appleSongs.length === 0) {
+      setError("Apple Music 링크가 있는 곡이 없습니다.");
+      return;
+    }
+
+    const links = appleSongs.map((song) => ({
+      title: song.title,
+      artist: song.artist,
+      url: song.youtube_url,
+      songId: extractAppleMusicSongId(song.youtube_url),
+    }));
+
+    setExportLinks(links);
+    setExportModalOpen(true);
   };
 
   const getLinkTypeLabel = (type) => {
@@ -1087,6 +1127,9 @@ function PlaylistDetailPage() {
           <button className={detailButtonClass} onClick={copySongList}>
             목록 복사
           </button>
+          <button className={detailButtonClass} onClick={handleExportToAppleMusic}>
+            Apple Music으로 내보내기
+          </button>
           {copyMessage && <span className="text-sm text-[#5a5a5a]">{copyMessage}</span>}
         </div>
 
@@ -1268,6 +1311,55 @@ function PlaylistDetailPage() {
           ))
         )}
       </div>
+
+      {exportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/45 p-4 backdrop-blur-[3px]"
+          onClick={() => setExportModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-[520px] rounded-3xl bg-[#ddd9cd] p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-2xl font-bold text-[#0a0a0a]">Apple Music으로 내보내기</h2>
+            <p className="mb-5 text-sm text-[#5a5a5a]">
+              아래 곡들을 Apple Music에서 열고, 각 곡을 플레이리스트에 추가하세요.
+            </p>
+
+            <div className="mb-5 max-h-[50vh] overflow-y-auto">
+              {exportLinks.map((item, i) => (
+                <div key={i} className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-[#ece9df] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-[#0a0a0a]">{item.title}</p>
+                    <p className="truncate text-xs text-[#5a5a5a]">{item.artist}</p>
+                  </div>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-lg bg-[#c95652] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#b84547]"
+                  >
+                    Apple Music 열기
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <p className="mb-5 rounded-xl border border-[#d9c4ad] bg-[#f0e3d0] px-4 py-3 text-xs font-medium text-[#8b6f3d]">
+              💡 Apple Music 앱이 설치된 기기에서 링크를 열면 앱에서 바로 해당 곡으로 이동합니다.
+              각 곡 페이지의 ···(더보기) → "플레이리스트에 추가"로 직접 저장하세요.
+            </p>
+
+            <button
+              type="button"
+              className="w-full rounded-xl bg-[#c4c0b5] px-6 py-2 text-base font-bold text-[#0a0a0a] transition hover:bg-[#b8b4a8]"
+              onClick={() => setExportModalOpen(false)}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
