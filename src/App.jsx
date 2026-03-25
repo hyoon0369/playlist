@@ -723,6 +723,8 @@ function PlaylistDetailPage() {
   const [itunesLoading, setItunesLoading] = useState(false);
   const [itunesError, setItunesError] = useState("");
   const itunesAbortControllerRef = useRef(null);
+  const genreBackfillRunningRef = useRef(false);
+  const genreBackfillAttemptedIdsRef = useRef(new Set());
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -838,6 +840,121 @@ function PlaylistDetailPage() {
     setPlaylistLoading(false);
   };
 
+  const normalizeGenreValue = (genre) => {
+    if (genre == null) {
+      return "";
+    }
+    if (typeof genre === "string") {
+      return genre.trim();
+    }
+    return String(genre).trim();
+  };
+
+  const backfillGenresFromAppleLinks = async (sourceSongs) => {
+    if (genreBackfillRunningRef.current) {
+      return;
+    }
+
+    const candidates = sourceSongs
+      .filter(
+        (song) =>
+          !normalizeGenreValue(song.genre) &&
+          getLinkType(song.youtube_url) === "apple_music"
+      )
+      .map((song) => ({
+        ...song,
+        appleSongId: extractAppleMusicSongId(song.youtube_url),
+      }))
+      .filter(
+        (song) =>
+          song.appleSongId && !genreBackfillAttemptedIdsRef.current.has(song.id)
+      );
+
+    if (!candidates.length) {
+      return;
+    }
+
+    candidates.forEach((song) => {
+      genreBackfillAttemptedIdsRef.current.add(song.id);
+    });
+
+    genreBackfillRunningRef.current = true;
+
+    try {
+      const genreByAppleSongId = {};
+      const uniqueAppleSongIds = [...new Set(candidates.map((song) => String(song.appleSongId)))];
+
+      for (const appleSongId of uniqueAppleSongIds) {
+        try {
+          const response = await fetch(
+            `https://itunes.apple.com/lookup?id=${encodeURIComponent(appleSongId)}&entity=song`
+          );
+          if (!response.ok) {
+            continue;
+          }
+
+          const data = await response.json();
+          const results = data.results || [];
+          const matchedTrack =
+            results.find((item) => String(item.trackId) === appleSongId) ||
+            results.find((item) => item.kind === "song");
+          const genre = normalizeGenreValue(matchedTrack?.primaryGenreName);
+          if (genre) {
+            genreByAppleSongId[appleSongId] = genre;
+          }
+        } catch (lookupError) {
+          console.error(lookupError);
+        }
+      }
+
+      const updatesByGenre = candidates.reduce((acc, song) => {
+        const genre = genreByAppleSongId[String(song.appleSongId)];
+        if (!genre) {
+          return acc;
+        }
+        if (!acc[genre]) {
+          acc[genre] = [];
+        }
+        acc[genre].push(song.id);
+        return acc;
+      }, {});
+
+      const songGenreMap = {};
+      await Promise.all(
+        Object.entries(updatesByGenre).map(async ([genre, songIds]) => {
+          const { error: updateError } = await supabase
+            .from("songs")
+            .update({ genre })
+            .in("id", songIds);
+
+          if (updateError) {
+            console.error(updateError);
+            return;
+          }
+
+          songIds.forEach((songId) => {
+            songGenreMap[songId] = genre;
+          });
+        })
+      );
+
+      if (Object.keys(songGenreMap).length > 0) {
+        setSongs((prev) =>
+          prev.map((song) =>
+            songGenreMap[song.id]
+              ? {
+                  ...song,
+                  genre: songGenreMap[song.id],
+                }
+              : song
+          )
+        );
+      }
+    } finally {
+      genreBackfillRunningRef.current = false;
+    }
+  };
+
   const fetchSongs = async () => {
     const { data, error } = await supabase
       .from("songs")
@@ -849,16 +966,15 @@ function PlaylistDetailPage() {
       console.error(error);
       setError("음악 불러오기 실패");
     } else {
-      const normalizedSongs = (data || []).map((song) => ({
-        ...song,
-        genre:
-          typeof song.genre === "string"
-            ? song.genre
-            : song.genre == null
-              ? null
-              : String(song.genre),
-      }));
+      const normalizedSongs = (data || []).map((song) => {
+        const normalizedGenre = normalizeGenreValue(song.genre);
+        return {
+          ...song,
+          genre: normalizedGenre || null,
+        };
+      });
       setSongs(normalizedSongs);
+      void backfillGenresFromAppleLinks(normalizedSongs);
     }
     setLoading(false);
   };
@@ -968,6 +1084,9 @@ function PlaylistDetailPage() {
   };
 
   useEffect(() => {
+    genreBackfillAttemptedIdsRef.current.clear();
+    genreBackfillRunningRef.current = false;
+
     fetchPlaylist();
     fetchSongs();
 
@@ -999,13 +1118,7 @@ function PlaylistDetailPage() {
   }, [songs, search, selectedPlatform]);
 
   const getSongGenre = (song) => {
-    if (!song || song.genre == null) {
-      return "";
-    }
-    if (typeof song.genre === "string") {
-      return song.genre.trim();
-    }
-    return String(song.genre).trim();
+    return normalizeGenreValue(song?.genre);
   };
 
   const genreDistribution = useMemo(() => {
