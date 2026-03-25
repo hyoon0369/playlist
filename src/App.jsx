@@ -724,7 +724,6 @@ function PlaylistDetailPage() {
   const [itunesError, setItunesError] = useState("");
   const itunesAbortControllerRef = useRef(null);
   const metadataBackfillRunningRef = useRef(false);
-  const metadataBackfillAttemptedIdsRef = useRef(new Set());
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -953,7 +952,15 @@ function PlaylistDetailPage() {
         );
       });
 
-      return strictMatch || results[0] || null;
+      const relaxedMatch = results.find((item) => {
+        const trackName = normalizeComparableText(item?.trackName);
+        const artistName = normalizeComparableText(item?.artistName);
+        const artistMatched = !artistLower || artistName.includes(artistLower) || artistLower.includes(artistName);
+        const titleMatched = !titleLower || trackName.includes(titleLower) || titleLower.includes(trackName);
+        return artistMatched && titleMatched;
+      });
+
+      return strictMatch || relaxedMatch || null;
     } catch (searchError) {
       console.error(searchError);
       return null;
@@ -972,8 +979,7 @@ function PlaylistDetailPage() {
         return (
           (needsGenre || needsArtwork) &&
           song.youtube_url &&
-          getLinkType(song.youtube_url) === "apple_music" &&
-          !metadataBackfillAttemptedIdsRef.current.has(song.id)
+          getLinkType(song.youtube_url) === "apple_music"
         );
       })
       .map((song) => ({
@@ -984,10 +990,6 @@ function PlaylistDetailPage() {
     if (!candidates.length) {
       return;
     }
-
-    candidates.forEach((song) => {
-      metadataBackfillAttemptedIdsRef.current.add(song.id);
-    });
 
     metadataBackfillRunningRef.current = true;
 
@@ -1202,7 +1204,6 @@ function PlaylistDetailPage() {
   };
 
   useEffect(() => {
-    metadataBackfillAttemptedIdsRef.current.clear();
     metadataBackfillRunningRef.current = false;
 
     fetchPlaylist();
