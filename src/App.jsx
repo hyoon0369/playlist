@@ -879,6 +879,52 @@ function PlaylistDetailPage() {
   const getItunesArtworkUrl = (track) =>
     normalizeArtworkValue(track?.artworkUrl100 || track?.artworkUrl60 || track?.artworkUrl30);
 
+  const getItunesMetadataFromTrack = (track) => {
+    if (!track) {
+      return null;
+    }
+
+    const genre = normalizeGenreValue(track.primaryGenreName);
+    const artworkUrl = getItunesArtworkUrl(track);
+
+    if (!genre && !artworkUrl) {
+      return null;
+    }
+
+    return { genre, artworkUrl };
+  };
+
+  const normalizeComparableText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const fetchItunesMetadataBySongId = async (appleSongId) => {
+    if (!appleSongId) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/lookup?id=${encodeURIComponent(appleSongId)}&entity=song`
+      );
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+      const matchedTrack =
+        results.find((item) => String(item.trackId) === String(appleSongId)) ||
+        results.find((item) => item.kind === "song");
+      return getItunesMetadataFromTrack(matchedTrack);
+    } catch (lookupError) {
+      console.error(lookupError);
+      return null;
+    }
+  };
+
   const fetchItunesTrackByTitleArtist = async (song) => {
     const query = `${song?.title || ""} ${song?.artist || ""}`.trim();
     if (!query) {
@@ -895,12 +941,12 @@ function PlaylistDetailPage() {
 
       const data = await response.json();
       const results = data.results || [];
-      const titleLower = (song?.title || "").toLowerCase().trim();
-      const artistLower = (song?.artist || "").toLowerCase().trim();
+      const titleLower = normalizeComparableText(song?.title);
+      const artistLower = normalizeComparableText(song?.artist);
 
       const strictMatch = results.find((item) => {
-        const trackName = (item?.trackName || "").toLowerCase();
-        const artistName = (item?.artistName || "").toLowerCase();
+        const trackName = normalizeComparableText(item?.trackName);
+        const artistName = normalizeComparableText(item?.artistName);
         return (
           (!titleLower || trackName.includes(titleLower)) &&
           (!artistLower || artistName.includes(artistLower))
@@ -920,20 +966,20 @@ function PlaylistDetailPage() {
     }
 
     const candidates = sourceSongs
-      .filter(
-        (song) =>
-          !normalizeArtworkValue(song.artwork_url) &&
+      .filter((song) => {
+        const needsGenre = !normalizeGenreValue(song.genre);
+        const needsArtwork = !normalizeArtworkValue(song.artwork_url);
+        return (
+          (needsGenre || needsArtwork) &&
           song.youtube_url &&
-          getLinkType(song.youtube_url) === "apple_music"
-      )
+          getLinkType(song.youtube_url) === "apple_music" &&
+          !metadataBackfillAttemptedIdsRef.current.has(song.id)
+        );
+      })
       .map((song) => ({
         ...song,
         appleSongId: extractAppleMusicSongId(song.youtube_url),
-      }))
-      .filter(
-        (song) =>
-          song.appleSongId && !metadataBackfillAttemptedIdsRef.current.has(song.id)
-      );
+      }));
 
     if (!candidates.length) {
       return;
@@ -947,45 +993,33 @@ function PlaylistDetailPage() {
 
     try {
       const metadataByAppleSongId = {};
-      const uniqueAppleSongIds = [...new Set(candidates.map((song) => String(song.appleSongId)))];
+      const uniqueAppleSongIds = [
+        ...new Set(
+          candidates
+            .map((song) => (song.appleSongId ? String(song.appleSongId) : null))
+            .filter(Boolean)
+        ),
+      ];
 
       for (const appleSongId of uniqueAppleSongIds) {
-        try {
-          const response = await fetch(
-            `https://itunes.apple.com/lookup?id=${encodeURIComponent(appleSongId)}&entity=song`
-          );
-          if (!response.ok) {
-            continue;
-          }
-
-          const data = await response.json();
-          const results = data.results || [];
-          const matchedTrack =
-            results.find((item) => String(item.trackId) === appleSongId) ||
-            results.find((item) => item.kind === "song");
-          const genre = normalizeGenreValue(matchedTrack?.primaryGenreName);
-          const artworkUrl = getItunesArtworkUrl(matchedTrack);
-          if (genre || artworkUrl) {
-            metadataByAppleSongId[appleSongId] = { genre, artworkUrl };
-          }
-        } catch (lookupError) {
-          console.error(lookupError);
+        const metadata = await fetchItunesMetadataBySongId(appleSongId);
+        if (metadata) {
+          metadataByAppleSongId[appleSongId] = metadata;
         }
       }
 
       const songPatchMap = {};
       await Promise.all(
         candidates.map(async (song) => {
-          let metadata = metadataByAppleSongId[String(song.appleSongId)];
+          let metadata = song.appleSongId
+            ? metadataByAppleSongId[String(song.appleSongId)]
+            : null;
+
           if (!metadata || (!metadata.genre && !metadata.artworkUrl)) {
             const searchedTrack = await fetchItunesTrackByTitleArtist(song);
-            if (searchedTrack) {
-              metadata = {
-                genre: normalizeGenreValue(searchedTrack.primaryGenreName),
-                artworkUrl: getItunesArtworkUrl(searchedTrack),
-              };
-            }
+            metadata = getItunesMetadataFromTrack(searchedTrack);
           }
+
           if (!metadata) {
             return;
           }
