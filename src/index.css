@@ -1,12 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --app-font: "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", "Roboto", sans-serif;
-  --display-font: "Noto Serif KR", serif;
+  --app-font: "Space Grotesk", "Noto Sans KR", "Apple SD Gothic Neo", "Segoe UI", "Roboto", sans-serif;
+  --display-font: "Space Grotesk", "Noto Sans KR", serif;
   --button-border: 1px solid #d6ceb4;
   --button-radius: 0.5rem;
   --button-bg: #f4efdf;

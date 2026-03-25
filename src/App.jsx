@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "./supabase";
+import { CoverGraphic } from "./components/CoverGraphic";
 
 export default function App() {
   return (
@@ -144,6 +145,15 @@ function PlaylistListPage() {
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
+
+  useEffect(() => {
+    if (playlistSuccess) {
+      const timer = setTimeout(() => {
+        setPlaylistSuccess("");
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [playlistSuccess]);
 
   const sanitizeFileName = (originalName) => {
     const ext = originalName.split(".").pop() || "jpg";
@@ -435,25 +445,23 @@ function PlaylistListPage() {
 
   return (
     <div
-      className="min-h-screen px-6 py-8 text-[#1f1c17] md:px-10 lg:px-14"
+      className="min-h-screen bg-[#e8e6dd] px-12 py-16 text-[#0a0a0a]"
       style={{
-        fontFamily: "'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
-        backgroundColor: "#f3efdf",
-        backgroundImage: "linear-gradient(180deg, #f7f3e7 0%, #eee7d1 100%)",
+        fontFamily: "'Space Grotesk', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
       }}
       onClick={() => setOpenMenuId(null)}
     >
-      <header className="mx-auto mb-10 w-full max-w-[1280px]">
+      <header className="mx-auto mb-12 w-full max-w-7xl">
         <h1
-          className="text-[56px] leading-none tracking-tight text-[#1d1a14] md:text-[60pt]"
-          style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+          className="mb-3 leading-none tracking-[-0.02em] text-[#0a0a0a]"
+          style={{ fontSize: "4rem", fontWeight: 700 }}
         >
           Mayonnaise
         </h1>
-        <p className="mt-5 text-lg font-semibold text-[#4b473d] md:text-2xl">Share your musics</p>
+        <p style={{ fontSize: "1.5rem", fontWeight: 400 }} className="text-[#0a0a0a]">Share your musics</p>
       </header>
 
-      <div className="mx-auto w-full max-w-[1280px]">
+      <div className="mx-auto w-full max-w-7xl">
         {playlistsError && (
           <p className="mb-3 rounded-xl border border-[#d9b8b1] bg-[#f3e4df] px-4 py-2 text-sm font-medium text-[#a44949]">
             {playlistsError}
@@ -465,47 +473,47 @@ function PlaylistListPage() {
           </p>
         )}
         {playlistSuccess && (
-          <p className="mb-3 rounded-xl border border-[#bcc6a2] bg-[#e8edd8] px-4 py-2 text-sm font-medium text-[#4e6440]">
+          <p className="mb-3 rounded-xl border border-[#d9c4ad] bg-[#f0e3d0] px-4 py-2 text-sm font-medium text-[#8b6f3d]">
             {playlistSuccess}
           </p>
         )}
       </div>
 
       {playlistsLoading ? (
-        <p className="mx-auto w-full max-w-[1280px] text-lg font-medium text-[#4e4a40]">플레이리스트 로딩 중...</p>
+        <p className="mx-auto w-full max-w-7xl text-lg font-medium text-[#5a5a5a]">플레이리스트 로딩 중...</p>
       ) : (
-        <section className="mx-auto grid w-full max-w-[1280px] grid-cols-1 auto-rows-fr gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+        <section className="mx-auto grid w-full max-w-7xl grid-cols-1 auto-rows-fr gap-8 md:grid-cols-2 lg:grid-cols-3">
           {playlists.map((pl) => (
             <article
               key={pl.playlist_id}
-              className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 ease-out hover:scale-[1.015] hover:bg-[#ece4ce] hover:z-10"
+              className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#d5d1c5] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
               onClick={() => navigate(`/${pl.id}`)}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="mb-4 flex items-start justify-between gap-4">
                 <div className="min-w-0 pr-2">
                   <h2
-                    className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#1e1b16] md:text-[30px] lg:text-[34px]"
-                    style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+                    className="mb-2 line-clamp-2 break-words leading-[1.2] text-[#0a0a0a]"
+                    style={{ fontSize: "1.75rem", fontWeight: 700 }}
                   >
                     {pl.title}
                   </h2>
-                  <p className="mt-3 text-base font-semibold text-[#403c32] md:text-[20px]">
-                    {songCountByPlaylist[pl.id] || 0} Tracks
+                  <p style={{ fontSize: "0.95rem", fontWeight: 400, minHeight: "1.4rem" }} className="text-[#5a5a5a]">
+                    {(songCountByPlaylist[pl.id] || 0) > 0 ? `${songCountByPlaylist[pl.id] || 0} Tracks` : "0 Tracks"}
                   </p>
                 </div>
 
                 <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
-                    className="flex h-9 w-9 flex-col items-center justify-center rounded-full opacity-50 transition hover:bg-[#d5ceb1] hover:opacity-100"
+                    className="flex h-9 w-9 flex-col items-center justify-center rounded-full border-0 bg-transparent p-1 transition-colors hover:bg-[#d0ccc0]"
                     onClick={() =>
                       setOpenMenuId((prev) => (prev === pl.id ? null : pl.id))
                     }
                     aria-label="playlist menu"
                   >
-                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
-                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
-                    <span className="block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
+                    <span className="block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
                   </button>
 
                   {openMenuId === pl.id && (
@@ -529,7 +537,7 @@ function PlaylistListPage() {
                 </div>
               </div>
 
-              <div className="mt-5 aspect-square w-full overflow-hidden rounded-[12px] bg-[#c4d19f]">
+              <div className="aspect-square w-full overflow-hidden rounded-2xl bg-[#e8e6dd]">
                 {pl.thumbnail ? (
                   <img
                     src={pl.thumbnail}
@@ -537,39 +545,39 @@ function PlaylistListPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="h-full w-full" aria-hidden="true" />
+                  <CoverGraphic />
                 )}
               </div>
             </article>
           ))}
 
           <article
-            className="relative flex h-full cursor-pointer flex-col rounded-[24px] bg-[#e8e1cb] p-7 transition duration-200 ease-out hover:scale-[1.015] hover:bg-[#ece4ce] hover:z-10"
+            className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#d5d1c5] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
             onClick={openAddPlaylistModal}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="mb-4 flex items-start justify-between gap-4">
               <div className="min-w-0 pr-2">
                 <h2
-                  className="line-clamp-2 break-words text-[24px] leading-[1.15] text-[#1e1b16] md:text-[30px] lg:text-[34px]"
-                  style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif", fontWeight: 800 }}
+                  className="mb-2 line-clamp-2 break-words leading-[1.2] text-[#0a0a0a]"
+                  style={{ fontSize: "1.75rem", fontWeight: 700 }}
                 >
                   New playlist
                 </h2>
-                <p className="mt-3 text-base font-semibold text-[#403c32] md:text-[20px]">
-                  0 Tracks
+                <p style={{ fontSize: "0.95rem", fontWeight: 400, minHeight: "1.4rem" }} className="text-[#5a5a5a]">
+                  
                 </p>
               </div>
 
               <div className="shrink-0">
-                <div className="flex h-9 w-9 flex-col items-center justify-center rounded-full opacity-50" aria-hidden="true">
-                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
-                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
-                  <span className="block h-1.5 w-1.5 rounded-full bg-[#889a63]" />
+                <div className="flex h-9 w-9 flex-col items-center justify-center rounded-full" aria-hidden="true">
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
+                  <span className="block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
                 </div>
               </div>
             </div>
-            <div className="mt-5 flex aspect-square w-full items-center justify-center rounded-[12px] bg-[#c4d19f]/85 text-xl font-semibold text-[#556741]">
-              Insert Image
+            <div className="aspect-square w-full overflow-hidden rounded-2xl bg-[#e8e6dd]">
+              <CoverGraphic />
             </div>
           </article>
         </section>
@@ -577,17 +585,16 @@ function PlaylistListPage() {
 
       {modalMode && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e291f]/35 p-4 backdrop-blur-[1px]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a0a]/45 p-4 backdrop-blur-[3px]"
           onClick={closePlaylistModal}
         >
           <div
             className="w-full max-w-[500px]"
-            style={{ fontFamily: "'Noto Sans KR', 'Arial Black', 'Apple SD Gothic Neo', sans-serif" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="rounded-[22px] bg-[#f5f0e0] p-8">
+            <div className="rounded-3xl bg-[#ddd9cd] p-8">
               <input
-                className="w-full bg-transparent text-[34px] font-bold leading-[1.08] text-[#1d1a14] outline-none md:text-[48px]"
+                className="w-full bg-transparent text-[36px] font-bold leading-[1.06] tracking-[-0.02em] text-[#0a0a0a] outline-none placeholder:text-[#6d685f] md:text-[50px]"
                 placeholder={modalMode === "edit" ? "Edit playlist" : "New playlist"}
                 value={modalTitleValue}
                 onChange={(e) => modalTitleSetter(e.target.value)}
@@ -598,7 +605,7 @@ function PlaylistListPage() {
                 <p className="mt-1 text-xs font-semibold text-[#a44949]">필수 입력 항목입니다.</p>
               )}
 
-              <p className="mt-2 text-base font-bold text-[#5f594c] md:text-lg">
+              <p className="mt-2 text-base font-medium text-[#5a5a5a] md:text-lg">
                 {currentModalPlaylistCount} Tracks
               </p>
 
@@ -623,7 +630,7 @@ function PlaylistListPage() {
                 role="button"
                 tabIndex={playlistUploading ? -1 : 0}
                 aria-disabled={playlistUploading}
-                className="relative mt-4 block aspect-square w-full overflow-hidden rounded-[12px] bg-[#c4d19f]"
+                className="relative mt-4 block aspect-square w-full overflow-hidden rounded-2xl bg-[#e8e6dd]"
                 onClick={() => {
                   if (!playlistUploading) triggerModalFilePicker();
                 }}
@@ -642,14 +649,14 @@ function PlaylistListPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-5xl font-semibold text-[#4f6039]">
+                  <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#5a5a5a]">
                     Insert Image
                   </div>
                 )}
                 {modalPreviewImage && (
                   <button
                     type="button"
-                    className="absolute right-3 top-3 rounded-lg border border-[#d9d0b4] bg-[#f5f0e0]/90 px-2 py-1 text-xs font-bold text-[#2f3b1f]"
+                    className="absolute right-3 top-3 rounded-lg border border-[#cfb7b6] bg-[#f4e3e2]/90 px-2 py-1 text-xs font-bold text-[#9a4343]"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (modalMode === "edit") {
@@ -668,7 +675,7 @@ function PlaylistListPage() {
             <div className="mt-3 flex items-center justify-between gap-3 px-1">
               <button
                 type="button"
-                className="rounded-xl border border-[#cfc7ad] bg-[#efe9d5] px-6 py-2 text-2xl font-bold text-[#312d24] transition hover:bg-[#e7e0c9] md:text-3xl"
+                className="rounded-xl border border-[#cfc8b8] bg-[#c4c0b5] px-6 py-2 text-lg font-bold text-[#0a0a0a] transition hover:bg-[#b8b4a8] md:text-xl"
                 onClick={closePlaylistModal}
                 disabled={playlistUploading}
               >
@@ -676,10 +683,10 @@ function PlaylistListPage() {
               </button>
               <button
                 type="button"
-                className="rounded-xl border-0 px-6 py-2 text-2xl font-bold transition md:text-3xl"
+                className="rounded-xl border-0 px-6 py-2 text-lg font-bold transition md:text-xl"
                 style={{
-                  backgroundColor: saveDisabled ? "#cbc4ad" : "#6d8050",
-                  color: saveDisabled ? "#716b5a" : "#f6f2e7",
+                  backgroundColor: saveDisabled ? "#c4c0b5" : "#c95652",
+                  color: saveDisabled ? "#6d685f" : "#ffffff",
                   cursor: saveDisabled ? "not-allowed" : "pointer",
                 }}
                 onClick={handleSaveModal}
@@ -1039,190 +1046,228 @@ function PlaylistDetailPage() {
     }
   };
 
-  if (playlistLoading) return <div style={{ padding: 40 }}>플레이리스트 로딩 중...</div>;
-  if (!playlist) return <div style={{ padding: 40 }}>플레이리스트를 찾을 수 없습니다.</div>;
+  if (playlistLoading) {
+    return (
+      <div className="min-h-screen bg-[#e8e6dd] px-6 py-10 text-[#0a0a0a] md:px-12 md:py-16">
+        <div className="mx-auto max-w-7xl text-lg font-medium text-[#5a5a5a]">플레이리스트 로딩 중...</div>
+      </div>
+    );
+  }
 
-  const sectionHeadingClass = "mb-2 mt-6 text-xl font-bold text-[#1f1c17] md:text-2xl";
+  if (!playlist) {
+    return (
+      <div className="min-h-screen bg-[#e8e6dd] px-6 py-10 text-[#0a0a0a] md:px-12 md:py-16">
+        <div className="mx-auto max-w-7xl text-lg font-medium text-[#5a5a5a]">플레이리스트를 찾을 수 없습니다.</div>
+      </div>
+    );
+  }
+
+  const sectionHeadingClass = "mb-3 mt-8 text-2xl font-bold text-[#0a0a0a]";
   const detailButtonClass =
-    "rounded-lg bg-[#d9d1ba] px-4 py-2 text-sm font-semibold text-[#2f2a21] transition hover:bg-[#cbc2a8] disabled:cursor-not-allowed disabled:opacity-60";
-  const songCardClass = "mb-2 rounded-xl bg-[#ebe4d1] px-4 py-3";
+    "rounded-lg border-0 bg-[#c4c0b5] px-4 py-2 text-sm font-semibold text-[#0a0a0a] transition hover:bg-[#b8b4a8] disabled:cursor-not-allowed disabled:opacity-60";
+  const songCardClass = "mb-3 rounded-2xl bg-[#ddd9cd] px-5 py-4";
+  const inputClass =
+    "rounded-lg border border-[#cfc8b8] bg-[#ece9df] px-3 py-2 text-sm text-[#0a0a0a] outline-none placeholder:text-[#6d685f] focus:border-[#c95652] focus:bg-[#f9f7f3]";
 
   return (
-    <div style={{ padding: 40 }}>
-      <button
-        type="button"
-        aria-label="뒤로 가기"
-        className="mb-4 rounded-lg bg-[#ebe4d1] px-3 py-2 text-lg font-bold text-[#2f2a21] disabled:cursor-not-allowed disabled:opacity-60"
-        onClick={() => navigate("/", { state: { refreshedAt: Date.now() } })}
-        disabled={songMutating}
-      >
-        ←
-      </button>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-bold">{playlist.title}</h1>
+    <div className="min-h-screen bg-[#e8e6dd] px-6 py-10 text-[#0a0a0a] md:px-12 md:py-16">
+      <div className="mx-auto max-w-7xl">
         <button
-          className={detailButtonClass}
-          onClick={copySongList}
+          type="button"
+          aria-label="뒤로 가기"
+          className="mb-5 rounded-lg border-0 bg-[#d0ccc0] px-3 py-2 text-lg font-bold text-[#0a0a0a] transition hover:bg-[#c4c0b5] disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => navigate("/", { state: { refreshedAt: Date.now() } })}
+          disabled={songMutating}
         >
-          목록 복사
+          ←
         </button>
-        {copyMessage && <span className="text-sm text-slate-500">{copyMessage}</span>}
-      </div>
-      {playlist.thumbnail && (
-        <div className="mb-7 mt-4 w-full max-w-[320px] rounded-[14px] bg-[#e1dac2] p-2">
-          <div className="aspect-square w-full overflow-hidden rounded-[10px] bg-[#c4d19f]/45">
-            <img
-              src={playlist.thumbnail}
-              alt={playlist.title}
-              className="h-full w-full object-contain"
-            />
-          </div>
+
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold text-[#0a0a0a]">{playlist.title}</h1>
+          <button className={detailButtonClass} onClick={copySongList}>
+            목록 복사
+          </button>
+          {copyMessage && <span className="text-sm text-[#5a5a5a]">{copyMessage}</span>}
         </div>
-      )}
 
-      <h2 className={sectionHeadingClass}>iTunes에서 검색하여 추가</h2>
-      <div style={{ marginBottom: 12 }}>
-        <input
-          placeholder="iTunes 검색어"
-          value={itunesQuery}
-          onChange={(e) => setItunesQuery(e.target.value)}
-          style={{ marginRight: 8 }}
-        />
-        <button className={detailButtonClass} onClick={(e) => { e.preventDefault(); fetchItunes(); }} disabled={itunesLoading}>
-          {itunesLoading ? "검색중..." : "검색"}
-        </button>
-        <button
-          className={detailButtonClass}
-          onClick={(e) => {
-            e.preventDefault();
-            handleCancelItunesSearch();
-          }}
-          style={{ marginLeft: 8 }}
-        >
-          취소
-        </button>
-      </div>
-      {itunesError && <p style={{ color: "red" }}>{itunesError}</p>}
-      {itunesResults.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          {itunesResults.map((track) => (
-            <div
-              key={track.trackId}
-              style={{ border: "1px solid #ddd", padding: 8, marginBottom: 6 }}
-            >
-              <div>
-                <strong>{track.trackName}</strong> - {track.artistName}
-              </div>
-              <div style={{ fontSize: 12, color: "#555" }}>
-                {track.collectionName} | {Math.floor(track.trackTimeMillis / 60000)}:{String(
-                  Math.floor((track.trackTimeMillis % 60000) / 1000)
-                ).padStart(2, "0")}
-              </div>
-              <button className={detailButtonClass} onClick={() => handleAddItunesTrack(track)} style={{ marginTop: 8 }}>
-                추가
-              </button>
+        {playlist.thumbnail && (
+          <div className="mb-8 mt-4 w-full max-w-[320px] rounded-2xl bg-[#ddd9cd] p-2">
+            <div className="aspect-square w-full overflow-hidden rounded-xl bg-[#e8e6dd]">
+              <img src={playlist.thumbnail} alt={playlist.title} className="h-full w-full object-cover" />
             </div>
-          ))}
-        </div>
-      )}
-
-      <h2 className={sectionHeadingClass}>직접 입력해서 추가</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          placeholder="곡 제목"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ marginRight: 8 }}
-        />
-        <input
-          placeholder="아티스트"
-          value={artist}
-          onChange={(e) => setArtist(e.target.value)}
-          style={{ marginRight: 8 }}
-        />
-        <input
-          placeholder="링크"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          style={{ marginRight: 8 }}
-        />
-        <button type="submit" className={detailButtonClass}>추가</button>
-      </form>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <h2 className={sectionHeadingClass}>음악 목록</h2>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {platformOptions.map((option) => {
-          const isSelected = selectedPlatform === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              className="rounded-lg px-3 py-1.5 text-sm font-semibold transition"
-              style={{
-                backgroundColor: isSelected ? "#6d8050" : "#d9d1ba",
-                color: isSelected ? "#f6f2e7" : "#2f2a21",
-              }}
-              onClick={() => setSelectedPlatform(option.value)}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-      <input
-        placeholder="검색"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ marginBottom: 12 }}
-      />
-
-      {loading ? (
-        <p>로딩중...</p>
-      ) : visibleSongs.length === 0 ? (
-        <p>음악이 없습니다.</p>
-      ) : (
-        visibleSongs.map((song) => (
-          <div key={song.id} className={songCardClass}>
-            {editingId === song.id ? (
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} style={{ marginRight: 8 }} />
-                  <input value={editingArtist} onChange={(e) => setEditingArtist(e.target.value)} style={{ marginRight: 8 }} />
-                  <input value={editingLink} onChange={(e) => setEditingLink(e.target.value)} style={{ marginRight: 8 }} />
-                </div>
-                <div className="flex shrink-0 items-center justify-end gap-2">
-                  <button className={detailButtonClass} onClick={() => handleUpdate(song.id)}>저장</button>
-                  <button className={detailButtonClass} onClick={() => setEditingId(null)}>취소</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-[#1f1c17] md:text-xl">{song.title}</h3>
-                  <p className="mt-1 text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
-                  {song.youtube_url && (
-                    <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#5e6f44] hover:underline">
-                      {getLinkTypeLabel(getLinkType(song.youtube_url))}
-                    </a>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center justify-end gap-2">
-                  <button onClick={() => {
-                    setEditingId(song.id);
-                    setEditingTitle(song.title);
-                    setEditingArtist(song.artist);
-                    setEditingLink(song.youtube_url || "");
-                  }} className={detailButtonClass}>수정</button>
-                  <button className={detailButtonClass} onClick={() => handleDelete(song.id)}>삭제</button>
-                </div>
-              </div>
-            )}
           </div>
-        ))
-      )}
+        )}
+
+        {(error || itunesError) && (
+          <p className="mb-4 rounded-xl border border-[#d9b8b1] bg-[#f3e4df] px-4 py-2 text-sm font-medium text-[#a44949]">
+            {error || itunesError}
+          </p>
+        )}
+
+        <h2 className={sectionHeadingClass}>iTunes에서 검색하여 추가</h2>
+        <section className="mb-5 rounded-3xl bg-[#ddd9cd] p-5">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <input
+              placeholder="iTunes 검색어"
+              value={itunesQuery}
+              onChange={(e) => setItunesQuery(e.target.value)}
+              className={`${inputClass} min-w-[220px] flex-1`}
+            />
+            <button
+              className={detailButtonClass}
+              onClick={(e) => {
+                e.preventDefault();
+                fetchItunes();
+              }}
+              disabled={itunesLoading}
+            >
+              {itunesLoading ? "검색중..." : "검색"}
+            </button>
+            <button
+              className={detailButtonClass}
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancelItunesSearch();
+              }}
+            >
+              취소
+            </button>
+          </div>
+
+          {itunesResults.length > 0 && (
+            <div>
+              {itunesResults.map((track) => (
+                <div key={track.trackId} className="mb-2 rounded-xl border border-[#cfc8b8] bg-[#ece9df] p-3">
+                  <div className="text-sm font-bold text-[#0a0a0a]">
+                    {track.trackName} - {track.artistName}
+                  </div>
+                  <div className="mt-1 text-xs text-[#5a5a5a]">
+                    {track.collectionName} | {Math.floor(track.trackTimeMillis / 60000)}:{String(
+                      Math.floor((track.trackTimeMillis % 60000) / 1000)
+                    ).padStart(2, "0")}
+                  </div>
+                  <button className={`${detailButtonClass} mt-2`} onClick={() => handleAddItunesTrack(track)}>
+                    추가
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <h2 className={sectionHeadingClass}>직접 입력해서 추가</h2>
+        <section className="mb-5 rounded-3xl bg-[#ddd9cd] p-5">
+          <form onSubmit={handleSubmit} className="flex flex-wrap gap-2">
+            <input
+              placeholder="곡 제목"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={`${inputClass} min-w-[170px] flex-1`}
+            />
+            <input
+              placeholder="아티스트"
+              value={artist}
+              onChange={(e) => setArtist(e.target.value)}
+              className={`${inputClass} min-w-[170px] flex-1`}
+            />
+            <input
+              placeholder="링크"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              className={`${inputClass} min-w-[220px] flex-[1.2]`}
+            />
+            <button type="submit" className={detailButtonClass}>추가</button>
+          </form>
+        </section>
+
+        <h2 className={sectionHeadingClass}>음악 목록</h2>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {platformOptions.map((option) => {
+            const isSelected = selectedPlatform === option.value;
+            const buttonClass = isSelected
+              ? "rounded-lg border-0 bg-[#c95652] px-3 py-1.5 text-sm font-semibold text-white"
+              : "rounded-lg border-0 bg-[#c4c0b5] px-3 py-1.5 text-sm font-semibold text-[#0a0a0a] transition hover:bg-[#b8b4a8]";
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={buttonClass}
+                onClick={() => setSelectedPlatform(option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <input
+          placeholder="검색"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={`${inputClass} mb-3 w-full max-w-[440px]`}
+        />
+
+        {loading ? (
+          <p className="text-[#5a5a5a]">로딩중...</p>
+        ) : visibleSongs.length === 0 ? (
+          <p className="text-[#5a5a5a]">음악이 없습니다.</p>
+        ) : (
+          visibleSongs.map((song) => (
+            <div key={song.id} className={songCardClass}>
+              {editingId === song.id ? (
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <input
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      className={`${inputClass} mb-2 min-w-[200px] flex-1`}
+                    />
+                    <input
+                      value={editingArtist}
+                      onChange={(e) => setEditingArtist(e.target.value)}
+                      className={`${inputClass} mb-2 min-w-[200px] flex-1`}
+                    />
+                    <input
+                      value={editingLink}
+                      onChange={(e) => setEditingLink(e.target.value)}
+                      className={`${inputClass} mb-2 min-w-[250px] flex-1`}
+                    />
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-2">
+                    <button className={detailButtonClass} onClick={() => handleUpdate(song.id)}>저장</button>
+                    <button className={detailButtonClass} onClick={() => setEditingId(null)}>취소</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-[#0a0a0a] md:text-xl">{song.title}</h3>
+                    <p className="mt-1 text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
+                    {song.youtube_url && (
+                      <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#c95652] hover:underline">
+                        {getLinkTypeLabel(getLinkType(song.youtube_url))}
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingId(song.id);
+                        setEditingTitle(song.title);
+                        setEditingArtist(song.artist);
+                        setEditingLink(song.youtube_url || "");
+                      }}
+                      className={detailButtonClass}
+                    >
+                      수정
+                    </button>
+                    <button className={detailButtonClass} onClick={() => handleDelete(song.id)}>삭제</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
