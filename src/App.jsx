@@ -455,7 +455,7 @@ function PlaylistListPage() {
         <h1 className="mb-2 text-[2.5rem] font-bold leading-none tracking-[-0.02em] text-[#0a0a0a] md:text-[4rem]">
           Mayonnaise
         </h1>
-        <p className="text-lg font-normal text-[#0a0a0a] md:text-2xl">Share your musics</p>
+        <p className="text-lg font-normal text-[#0a0a0a] md:text-2xl">Share your music</p>
       </header>
 
       <div className="mx-auto w-full max-w-7xl">
@@ -483,10 +483,10 @@ function PlaylistListPage() {
           {playlists.map((pl) => (
             <article
               key={pl.playlist_id}
-              className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#d5d1c5] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
+              className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#e8e4d9] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
               onClick={() => navigate(`/${pl.id}`)}
             >
-              <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="mb-4 flex items-start gap-4">
                 <div className="min-w-0 pr-2">
                   <h2
                     className="mb-2 line-clamp-2 break-words leading-[1.2] text-[#0a0a0a]"
@@ -498,40 +498,42 @@ function PlaylistListPage() {
                     {(songCountByPlaylist[pl.id] || 0) > 0 ? `${songCountByPlaylist[pl.id] || 0} Tracks` : "0 Tracks"}
                   </p>
                 </div>
+              </div>
 
-                <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 flex-col items-center justify-center rounded-full border-0 bg-transparent p-1 transition-colors hover:bg-[#d0ccc0]"
-                    onClick={() =>
-                      setOpenMenuId((prev) => (prev === pl.id ? null : pl.id))
-                    }
-                    aria-label="playlist menu"
-                  >
-                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
-                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
-                    <span className="block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
-                  </button>
+              <div className="absolute right-[6px] top-6 z-10" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="group flex h-9 w-9 appearance-none items-center justify-center rounded-full border-0 bg-transparent p-0 outline-none hover:bg-transparent focus:bg-transparent active:bg-transparent"
+                  onClick={() =>
+                    setOpenMenuId((prev) => (prev === pl.id ? null : pl.id))
+                  }
+                  aria-label="playlist menu"
+                >
+                  <div className="flex flex-col items-center justify-center">
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#7a756a] transition-colors group-hover:bg-[#c95652]" />
+                    <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#7a756a] transition-colors group-hover:bg-[#c95652]" />
+                    <span className="block h-1.5 w-1.5 rounded-full bg-[#7a756a] transition-colors group-hover:bg-[#c95652]" />
+                  </div>
+                </button>
 
-                  {openMenuId === pl.id && (
-                    <div className="absolute right-0 top-11 z-20 w-36 rounded-xl border border-[#d2caae] bg-[#f5f1e2] p-2 shadow-[0_2px_8px_rgba(58,50,34,0.12)]">
-                      <button
-                        type="button"
-                        className="mb-1 w-full rounded-lg px-3 py-2 text-left font-semibold text-[#2c291f] hover:bg-[#e6dfc8]"
-                        onClick={() => handleEditPlaylist(pl)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="w-full rounded-lg px-3 py-2 text-left font-semibold text-[#9a4343] hover:bg-[#e6dfc8]"
-                        onClick={() => handleDeletePlaylist(pl.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {openMenuId === pl.id && (
+                  <div className="absolute right-0 top-11 z-20 w-36 rounded-xl border border-[#d2caae] bg-[#f5f1e2] p-2 shadow-[0_2px_8px_rgba(58,50,34,0.12)]">
+                    <button
+                      type="button"
+                      className="mb-1 w-full rounded-lg px-3 py-2 text-left font-semibold text-[#2c291f] hover:bg-[#e6dfc8]"
+                      onClick={() => handleEditPlaylist(pl)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full rounded-lg px-3 py-2 text-left font-semibold text-[#9a4343] hover:bg-[#e6dfc8]"
+                      onClick={() => handleDeletePlaylist(pl.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="aspect-square w-full overflow-hidden rounded-2xl bg-[#e8e6dd]">
@@ -549,10 +551,10 @@ function PlaylistListPage() {
           ))}
 
           <article
-            className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#d5d1c5] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
+            className="relative flex h-full cursor-pointer flex-col rounded-3xl bg-[#ddd9cd] p-6 transition-[transform,background-color,box-shadow] duration-200 ease-out hover:z-10 hover:scale-[1.012] hover:-translate-y-0.5 hover:bg-[#e8e4d9] hover:shadow-[0_10px_24px_rgba(44,39,31,0.16)]"
             onClick={openAddPlaylistModal}
           >
-            <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="mb-4 flex items-start gap-4">
               <div className="min-w-0 pr-2">
                 <h2
                   className="mb-2 line-clamp-2 break-words leading-[1.2] text-[#0a0a0a]"
@@ -564,12 +566,13 @@ function PlaylistListPage() {
                   
                 </p>
               </div>
-
-              <div className="shrink-0">
-                <div className="flex h-9 w-9 flex-col items-center justify-center rounded-full" aria-hidden="true">
-                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
-                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
-                  <span className="block h-1.5 w-1.5 rounded-full bg-[#c95652]" />
+            </div>
+            <div className="pointer-events-none absolute right-[6px] top-6">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full" aria-hidden="true">
+                <div className="flex flex-col items-center justify-center">
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#7a756a]" />
+                  <span className="mb-1 block h-1.5 w-1.5 rounded-full bg-[#7a756a]" />
+                  <span className="block h-1.5 w-1.5 rounded-full bg-[#7a756a]" />
                 </div>
               </div>
             </div>
@@ -1146,7 +1149,7 @@ function PlaylistDetailPage() {
 
         <h2 className={sectionHeadingClass}>iTunes에서 검색하여 추가</h2>
         <section className="mb-5 rounded-3xl bg-[#ddd9cd] p-5">
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
               placeholder="iTunes 검색어"
               value={itunesQuery}
