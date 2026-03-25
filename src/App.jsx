@@ -728,6 +728,7 @@ function PlaylistDetailPage() {
   const [editingTitle, setEditingTitle] = useState("");
   const [editingArtist, setEditingArtist] = useState("");
   const [editingLink, setEditingLink] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [copyMessage, setCopyMessage] = useState("");
   const [songMutating, setSongMutating] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState("all");
@@ -1206,18 +1207,20 @@ function PlaylistDetailPage() {
           ←
         </button>
 
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <h1 className="text-3xl font-bold text-[#0a0a0a]">{playlist.title}</h1>
-          <button className={detailButtonClass} onClick={copySongList}>
-            목록 복사
-          </button>
-          <button className={detailButtonClass} onClick={handleExportToAppleMusic}>
-            Apple Music으로 내보내기
-          </button>
-          {copyMessage && <span className="text-sm text-[#5a5a5a]">{copyMessage}</span>}
+        <div className="mb-6">
+          <h1 className="mb-3 text-3xl font-bold text-[#0a0a0a]">{playlist.title}</h1>
+          <div className="flex flex-wrap gap-3">
+            <button className={detailButtonClass} onClick={copySongList}>
+              목록 복사
+            </button>
+            <button className={detailButtonClass} onClick={handleExportToAppleMusic}>
+              Apple Music으로 내보내기
+            </button>
+            {copyMessage && <span className="text-sm text-[#5a5a5a]">{copyMessage}</span>}
+          </div>
         </div>
 
-        <div className="mb-8 mt-4 grid w-full max-w-[720px] grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mb-8 mt-4 grid w-full max-w-[720px] grid-cols-1 items-start gap-4 md:grid-cols-2">
           <div className="rounded-2xl bg-[#ddd9cd] p-2">
             <div className="aspect-square w-full overflow-hidden rounded-xl bg-[#e8e6dd]">
               {playlist.thumbnail ? (
@@ -1241,6 +1244,17 @@ function PlaylistDetailPage() {
                   {donutSegments.map((segment) => {
                     const start = segment.startRatio * 360;
                     const end = segment.endRatio * 360;
+                    if (end - start >= 360) {
+                      return (
+                        <circle
+                          key={segment.genre}
+                          cx="60" cy="60" r="44"
+                          fill="none"
+                          stroke={segment.color}
+                          strokeWidth="20"
+                        />
+                      );
+                    }
                     return (
                       <path
                         key={segment.genre}
@@ -1316,7 +1330,7 @@ function PlaylistDetailPage() {
           </div>
 
           {itunesResults.length > 0 && (
-            <div>
+            <div className="mt-4">
               {itunesResults.map((track) => (
                 <div key={track.trackId} className="mb-2 rounded-xl border border-[#cfc8b8] bg-[#ece9df] p-3">
                   <div className="text-sm font-bold text-[#0a0a0a]">
@@ -1394,7 +1408,7 @@ function PlaylistDetailPage() {
           <p className="text-[#5a5a5a]">음악이 없습니다.</p>
         ) : (
           visibleSongs.map((song) => (
-            <div key={song.id} className={songCardClass}>
+            <div key={song.id} className={`${songCardClass} transition-colors duration-150 ${confirmDeleteId === song.id ? "bg-[#ecdcd9]" : ""}`}>
               {editingId === song.id ? (
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -1438,18 +1452,41 @@ function PlaylistDetailPage() {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingId(song.id);
-                        setEditingTitle(song.title);
-                        setEditingArtist(song.artist);
-                        setEditingLink(song.youtube_url || "");
-                      }}
-                      className={detailButtonClass}
-                    >
-                      수정
-                    </button>
-                    <button className={detailButtonClass} onClick={() => handleDelete(song.id)}>삭제</button>
+                    {confirmDeleteId === song.id ? (
+                      <>
+                        <span className="hidden text-sm font-semibold text-[#9a4343] sm:inline">"{song.title}" 삭제할까요?</span>
+                        <button
+                          className="rounded-lg bg-[#c95652] px-3 py-1.5 text-sm font-bold text-white transition hover:bg-[#b84547] disabled:opacity-60"
+                          onClick={() => { setConfirmDeleteId(null); handleDelete(song.id); }}
+                          disabled={songMutating}
+                        >
+                          삭제
+                        </button>
+                        <button className={detailButtonClass} onClick={() => setConfirmDeleteId(null)} disabled={songMutating}>
+                          취소
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditingId(song.id);
+                            setEditingTitle(song.title);
+                            setEditingArtist(song.artist);
+                            setEditingLink(song.youtube_url || "");
+                          }}
+                          className={detailButtonClass}
+                        >
+                          수정
+                        </button>
+                        <button
+                          className={`${detailButtonClass} hover:bg-[#e8d5d3] hover:text-[#9a4343]`}
+                          onClick={() => setConfirmDeleteId(song.id)}
+                        >
+                          삭제
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
