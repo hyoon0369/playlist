@@ -905,7 +905,7 @@ function PlaylistDetailPage() {
     }
 
     try {
-      const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(appleSongId)}&entity=song`;
+      const url = `/api/itunes?endpoint=lookup&id=${encodeURIComponent(appleSongId)}&entity=song`;
       console.log(`[backfill] lookup id=${appleSongId}`, url);
       const response = await fetch(url);
       if (!response.ok) {
@@ -937,7 +937,7 @@ function PlaylistDetailPage() {
     try {
       console.log(`[backfill] search title/artist: "${query}"`);
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5`
+        `/api/itunes?endpoint=search&term=${encodeURIComponent(query)}&entity=song&limit=5`
       );
       if (!response.ok) {
         console.warn(`[backfill] search failed status=${response.status} query="${query}"`);
@@ -1134,7 +1134,7 @@ function PlaylistDetailPage() {
 
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(itunesQuery)}&entity=song&limit=12`,
+        `/api/itunes?endpoint=search&term=${encodeURIComponent(itunesQuery)}&entity=song&limit=12`,
         { signal: controller.signal }
       );
       if (!response.ok) {
