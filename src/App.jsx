@@ -848,7 +848,16 @@ function PlaylistDetailPage() {
       console.error(error);
       setError("음악 불러오기 실패");
     } else {
-      setSongs(data || []);
+      const normalizedSongs = (data || []).map((song) => ({
+        ...song,
+        genre:
+          typeof song.genre === "string"
+            ? song.genre
+            : song.genre == null
+              ? null
+              : String(song.genre),
+      }));
+      setSongs(normalizedSongs);
     }
     setLoading(false);
   };
@@ -918,6 +927,7 @@ function PlaylistDetailPage() {
           title: track.trackName || "",
           artist: track.artistName || "",
           youtube_url: track.trackViewUrl || track.previewUrl || null,
+          genre: track.primaryGenreName || null,
           playlist_id: parseInt(playlistId),
         },
       ]);
@@ -987,6 +997,49 @@ function PlaylistDetailPage() {
     );
   }, [songs, search, selectedPlatform]);
 
+  const getSongGenre = (song) => {
+    if (!song || song.genre == null) {
+      return "";
+    }
+    if (typeof song.genre === "string") {
+      return song.genre.trim();
+    }
+    return String(song.genre).trim();
+  };
+
+  const genreDistribution = useMemo(() => {
+    const appleGenreSongs = songs.filter(
+      (song) => getLinkType(song.youtube_url) === "apple_music" && getSongGenre(song)
+    );
+
+    const total = appleGenreSongs.length;
+    if (!total) {
+      return { total: 0, items: [] };
+    }
+
+    const counts = appleGenreSongs.reduce((acc, song) => {
+      const genre = getSongGenre(song);
+      acc[genre] = (acc[genre] || 0) + 1;
+      return acc;
+    }, {});
+
+    const sorted = Object.entries(counts)
+      .map(([genre, count]) => ({ genre, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const topItems = sorted.slice(0, 5);
+    const othersCount = sorted.slice(5).reduce((sum, item) => sum + item.count, 0);
+    const items = othersCount > 0 ? [...topItems, { genre: "Others", count: othersCount }] : topItems;
+
+    return {
+      total,
+      items: items.map((item) => ({
+        ...item,
+        ratio: item.count / total,
+      })),
+    };
+  }, [songs]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -1003,6 +1056,7 @@ function PlaylistDetailPage() {
           title,
           artist,
           youtube_url: link || null,
+          genre: null,
           playlist_id: parseInt(playlistId),
         },
       ]);
@@ -1108,6 +1162,36 @@ function PlaylistDetailPage() {
   const songCardClass = "mb-3 rounded-2xl bg-[#ddd9cd] px-5 py-4";
   const inputClass =
     "rounded-lg border border-[#cfc8b8] bg-[#ece9df] px-3 py-2 text-sm text-[#0a0a0a] outline-none placeholder:text-[#6d685f] focus:border-[#c95652] focus:bg-[#f9f7f3]";
+  const genreChartColors = ["#c95652", "#d4a84f", "#9f8f75", "#7a756a", "#b9827f", "#8b6f3d"];
+
+  const donutSegments = (() => {
+    let accumulated = 0;
+    return genreDistribution.items.map((item, index) => {
+      const startRatio = accumulated;
+      accumulated += item.ratio;
+      return {
+        ...item,
+        startRatio,
+        endRatio: accumulated,
+        color: genreChartColors[index % genreChartColors.length],
+      };
+    });
+  })();
+
+  const polarToCartesian = (cx, cy, r, angle) => {
+    const rad = ((angle - 90) * Math.PI) / 180.0;
+    return {
+      x: cx + r * Math.cos(rad),
+      y: cy + r * Math.sin(rad),
+    };
+  };
+
+  const describeArc = (cx, cy, r, startAngle, endAngle) => {
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+  };
 
   return (
     <div className="min-h-screen bg-[#e8e6dd] px-6 py-10 text-[#0a0a0a] md:px-12 md:py-16">
@@ -1133,13 +1217,67 @@ function PlaylistDetailPage() {
           {copyMessage && <span className="text-sm text-[#5a5a5a]">{copyMessage}</span>}
         </div>
 
-        {playlist.thumbnail && (
-          <div className="mb-8 mt-4 w-full max-w-[320px] rounded-2xl bg-[#ddd9cd] p-2">
+        <div className="mb-8 mt-4 grid w-full max-w-[720px] grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-2xl bg-[#ddd9cd] p-2">
             <div className="aspect-square w-full overflow-hidden rounded-xl bg-[#e8e6dd]">
-              <img src={playlist.thumbnail} alt={playlist.title} className="h-full w-full object-cover" />
+              {playlist.thumbnail ? (
+                <img src={playlist.thumbnail} alt={playlist.title} className="h-full w-full object-cover" />
+              ) : (
+                <CoverGraphic />
+              )}
             </div>
           </div>
-        )}
+
+          <div className="rounded-2xl bg-[#ddd9cd] p-4">
+            <h3 className="mb-1 text-lg font-bold text-[#0a0a0a]">장르 비율</h3>
+            <p className="mb-3 text-xs text-[#5a5a5a]">Apple Music으로 추가된 곡 기준</p>
+
+            {genreDistribution.total === 0 ? (
+              <p className="text-sm text-[#6d685f]">장르 정보가 있는 Apple Music 곡이 아직 없습니다.</p>
+            ) : (
+              <div className="flex items-center gap-4">
+                <svg viewBox="0 0 120 120" className="h-32 w-32 shrink-0">
+                  <circle cx="60" cy="60" r="44" fill="none" stroke="#ece9df" strokeWidth="20" />
+                  {donutSegments.map((segment) => {
+                    const start = segment.startRatio * 360;
+                    const end = segment.endRatio * 360;
+                    return (
+                      <path
+                        key={segment.genre}
+                        d={describeArc(60, 60, 44, start, end)}
+                        fill="none"
+                        stroke={segment.color}
+                        strokeWidth="20"
+                        strokeLinecap="butt"
+                      />
+                    );
+                  })}
+                  <circle cx="60" cy="60" r="26" fill="#ddd9cd" />
+                  <text x="60" y="58" textAnchor="middle" className="fill-[#3a352b] text-[10px] font-semibold">
+                    Genres
+                  </text>
+                  <text x="60" y="72" textAnchor="middle" className="fill-[#0a0a0a] text-[13px] font-bold">
+                    {genreDistribution.total}
+                  </text>
+                </svg>
+
+                <div className="min-w-0 flex-1 space-y-1">
+                  {donutSegments.map((segment) => (
+                    <div key={segment.genre} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: segment.color }} />
+                        <span className="truncate text-[#3a352b]">{segment.genre}</span>
+                      </span>
+                      <span className="shrink-0 font-semibold text-[#5a5a5a]">
+                        {Math.round(segment.ratio * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {(error || itunesError) && (
           <p className="mb-4 rounded-xl border border-[#d9b8b1] bg-[#f3e4df] px-4 py-2 text-sm font-medium text-[#a44949]">
@@ -1188,6 +1326,7 @@ function PlaylistDetailPage() {
                     {track.collectionName} | {Math.floor(track.trackTimeMillis / 60000)}:{String(
                       Math.floor((track.trackTimeMillis % 60000) / 1000)
                     ).padStart(2, "0")}
+                    {track.primaryGenreName ? ` | ${track.primaryGenreName}` : ""}
                   </div>
                   <button className={`${detailButtonClass} mt-2`} onClick={() => handleAddItunesTrack(track)}>
                     추가
@@ -1284,7 +1423,14 @@ function PlaylistDetailPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="text-lg font-bold text-[#0a0a0a] md:text-xl">{song.title}</h3>
-                    <p className="mt-1 text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
+                      {getSongGenre(song) && (
+                        <span className="max-w-[170px] truncate rounded-full bg-[#ece9df] px-2 py-0.5 text-[11px] font-semibold text-[#6b665b] sm:max-w-none sm:overflow-visible sm:whitespace-normal">
+                          {getSongGenre(song)}
+                        </span>
+                      )}
+                    </div>
                     {song.youtube_url && (
                       <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#c95652] hover:underline">
                         {getLinkTypeLabel(getLinkType(song.youtube_url))}
