@@ -445,20 +445,17 @@ function PlaylistListPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#e8e6dd] px-12 py-16 text-[#0a0a0a]"
+      className="min-h-screen bg-[#e8e6dd] px-6 py-10 text-[#0a0a0a] md:px-12 md:py-16"
       style={{
         fontFamily: "'Space Grotesk', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
       }}
       onClick={() => setOpenMenuId(null)}
     >
-      <header className="mx-auto mb-12 w-full max-w-7xl">
-        <h1
-          className="mb-3 leading-none tracking-[-0.02em] text-[#0a0a0a]"
-          style={{ fontSize: "4rem", fontWeight: 700 }}
-        >
+      <header className="mx-auto mb-10 w-full max-w-7xl md:mb-12">
+        <h1 className="mb-2 text-[2.5rem] font-bold leading-none tracking-[-0.02em] text-[#0a0a0a] md:text-[4rem]">
           Mayonnaise
         </h1>
-        <p style={{ fontSize: "1.5rem", fontWeight: 400 }} className="text-[#0a0a0a]">Share your musics</p>
+        <p className="text-lg font-normal text-[#0a0a0a] md:text-2xl">Share your musics</p>
       </header>
 
       <div className="mx-auto w-full max-w-7xl">
