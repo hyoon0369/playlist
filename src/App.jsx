@@ -517,17 +517,17 @@ function PlaylistListPage() {
                 </button>
 
                 {openMenuId === pl.id && (
-                  <div className="absolute right-0 top-11 z-20 w-36 rounded-xl border border-[#d2caae] bg-[#f5f1e2] p-2 shadow-[0_2px_8px_rgba(58,50,34,0.12)]">
+                  <div className="absolute right-0 top-11 z-20 w-40 rounded-xl bg-[#d7d3c8] p-2 shadow-[0_8px_20px_rgba(58,50,34,0.18)]">
                     <button
                       type="button"
-                      className="mb-1 w-full rounded-lg px-3 py-2 text-left font-semibold text-[#2c291f] hover:bg-[#e6dfc8]"
+                      className="mb-1 w-full appearance-none rounded-lg border-0 bg-[#ece9df] px-3 py-2 text-left font-semibold text-[#2c291f] outline-none transition hover:bg-[#f4f2ea]"
                       onClick={() => handleEditPlaylist(pl)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="w-full rounded-lg px-3 py-2 text-left font-semibold text-[#9a4343] hover:bg-[#e6dfc8]"
+                      className="w-full appearance-none rounded-lg border-0 bg-[#ece9df] px-3 py-2 text-left font-semibold text-[#9a4343] outline-none transition hover:bg-[#f4f2ea]"
                       onClick={() => handleDeletePlaylist(pl.id)}
                     >
                       Delete
