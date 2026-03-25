@@ -879,6 +879,41 @@ function PlaylistDetailPage() {
   const getItunesArtworkUrl = (track) =>
     normalizeArtworkValue(track?.artworkUrl100 || track?.artworkUrl60 || track?.artworkUrl30);
 
+  const fetchItunesTrackByTitleArtist = async (song) => {
+    const query = `${song?.title || ""} ${song?.artist || ""}`.trim();
+    if (!query) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5`
+      );
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      const results = data.results || [];
+      const titleLower = (song?.title || "").toLowerCase().trim();
+      const artistLower = (song?.artist || "").toLowerCase().trim();
+
+      const strictMatch = results.find((item) => {
+        const trackName = (item?.trackName || "").toLowerCase();
+        const artistName = (item?.artistName || "").toLowerCase();
+        return (
+          (!titleLower || trackName.includes(titleLower)) &&
+          (!artistLower || artistName.includes(artistLower))
+        );
+      });
+
+      return strictMatch || results[0] || null;
+    } catch (searchError) {
+      console.error(searchError);
+      return null;
+    }
+  };
+
   const backfillMetadataFromAppleLinks = async (sourceSongs) => {
     if (metadataBackfillRunningRef.current) {
       return;
@@ -888,7 +923,8 @@ function PlaylistDetailPage() {
       .filter(
         (song) =>
           !normalizeArtworkValue(song.artwork_url) &&
-          song.youtube_url
+          song.youtube_url &&
+          getLinkType(song.youtube_url) === "apple_music"
       )
       .map((song) => ({
         ...song,
@@ -940,7 +976,16 @@ function PlaylistDetailPage() {
       const songPatchMap = {};
       await Promise.all(
         candidates.map(async (song) => {
-          const metadata = metadataByAppleSongId[String(song.appleSongId)];
+          let metadata = metadataByAppleSongId[String(song.appleSongId)];
+          if (!metadata || (!metadata.genre && !metadata.artworkUrl)) {
+            const searchedTrack = await fetchItunesTrackByTitleArtist(song);
+            if (searchedTrack) {
+              metadata = {
+                genre: normalizeGenreValue(searchedTrack.primaryGenreName),
+                artworkUrl: getItunesArtworkUrl(searchedTrack),
+              };
+            }
+          }
           if (!metadata) {
             return;
           }
