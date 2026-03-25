@@ -723,6 +723,56 @@ function PlaylistDetailPage() {
   const [editingLink, setEditingLink] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [songMutating, setSongMutating] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState("all");
+
+  const platformOptions = [
+    { value: "all", label: "모두 보기" },
+    { value: "youtube", label: "YouTube" },
+    { value: "apple_music", label: "Apple Music" },
+    { value: "soundcloud", label: "Soundcloud" },
+    { value: "link", label: "link" },
+  ];
+
+  const getLinkType = (rawLink) => {
+    if (!rawLink || !rawLink.trim()) {
+      return null;
+    }
+
+    const trimmed = rawLink.trim();
+    const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+    try {
+      const host = new URL(normalized).hostname.toLowerCase();
+
+      if (host.includes("youtube.com") || host.includes("youtu.be")) {
+        return "youtube";
+      }
+      if (host.includes("music.apple.com") || host.includes("itunes.apple.com")) {
+        return "apple_music";
+      }
+      if (host.includes("soundcloud.com")) {
+        return "soundcloud";
+      }
+
+      return "link";
+    } catch {
+      return "link";
+    }
+  };
+
+  const getLinkTypeLabel = (type) => {
+    switch (type) {
+      case "youtube":
+        return "YouTube";
+      case "apple_music":
+        return "Apple Music";
+      case "soundcloud":
+        return "Soundcloud";
+      case "link":
+      default:
+        return "link";
+    }
+  };
 
   const fetchPlaylist = async () => {
     const { data, error } = await supabase
@@ -839,12 +889,12 @@ function PlaylistDetailPage() {
   };
 
   const copySongList = async () => {
-    if (!songs.length) {
+    if (!visibleSongs.length) {
       setCopyMessage("복사할 음악이 없습니다.");
       return;
     }
 
-    const text = songs
+    const text = visibleSongs
       .map((song) => `${song.title || ""} | ${song.artist || ""}`)
       .join("\n");
 
@@ -870,14 +920,25 @@ function PlaylistDetailPage() {
     };
   }, [playlistId]);
 
-  const filteredSongs = useMemo(() => {
+  const visibleSongs = useMemo(() => {
     const q = search.toLowerCase();
     return songs.filter(
-      (song) =>
-        song.title.toLowerCase().includes(q) ||
-        song.artist.toLowerCase().includes(q)
+      (song) => {
+        const titleMatched = (song.title || "").toLowerCase().includes(q);
+        const artistMatched = (song.artist || "").toLowerCase().includes(q);
+        if (!titleMatched && !artistMatched) {
+          return false;
+        }
+
+        if (selectedPlatform === "all") {
+          return true;
+        }
+
+        const linkType = getLinkType(song.youtube_url);
+        return linkType === selectedPlatform;
+      }
     );
-  }, [songs, search]);
+  }, [songs, search, selectedPlatform]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1092,6 +1153,25 @@ function PlaylistDetailPage() {
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       <h2 className={sectionHeadingClass}>음악 목록</h2>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {platformOptions.map((option) => {
+          const isSelected = selectedPlatform === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className="rounded-lg px-3 py-1.5 text-sm font-semibold transition"
+              style={{
+                backgroundColor: isSelected ? "#6d8050" : "#d9d1ba",
+                color: isSelected ? "#f6f2e7" : "#2f2a21",
+              }}
+              onClick={() => setSelectedPlatform(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
       <input
         placeholder="검색"
         value={search}
@@ -1101,10 +1181,10 @@ function PlaylistDetailPage() {
 
       {loading ? (
         <p>로딩중...</p>
-      ) : filteredSongs.length === 0 ? (
+      ) : visibleSongs.length === 0 ? (
         <p>음악이 없습니다.</p>
       ) : (
-        filteredSongs.map((song) => (
+        visibleSongs.map((song) => (
           <div key={song.id} className={songCardClass}>
             {editingId === song.id ? (
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1125,7 +1205,7 @@ function PlaylistDetailPage() {
                   <p className="mt-1 text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
                   {song.youtube_url && (
                     <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#5e6f44] hover:underline">
-                      LINK
+                      {getLinkTypeLabel(getLinkType(song.youtube_url))}
                     </a>
                   )}
                 </div>
