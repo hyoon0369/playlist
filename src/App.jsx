@@ -723,8 +723,8 @@ function PlaylistDetailPage() {
   const [itunesLoading, setItunesLoading] = useState(false);
   const [itunesError, setItunesError] = useState("");
   const itunesAbortControllerRef = useRef(null);
-  const genreBackfillRunningRef = useRef(false);
-  const genreBackfillAttemptedIdsRef = useRef(new Set());
+  const metadataBackfillRunningRef = useRef(false);
+  const metadataBackfillAttemptedIdsRef = useRef(new Set());
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -775,7 +775,8 @@ function PlaylistDetailPage() {
   const extractAppleMusicSongId = (url) => {
     if (!url) return null;
     try {
-      const parsed = new URL(url);
+      const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      const parsed = new URL(normalized);
       // ?i=SONGID 형식
       const i = parsed.searchParams.get("i");
       if (i) return i;
@@ -783,7 +784,12 @@ function PlaylistDetailPage() {
       const segments = parsed.pathname.split("/").filter(Boolean);
       const last = segments[segments.length - 1];
       if (/^\d+$/.test(last)) return last;
+      // /.../id123456789 또는 쿼리/경로에 포함된 id123456789 형식
+      const idMatch = `${parsed.pathname}${parsed.search}`.match(/id(\d{6,})/i);
+      if (idMatch?.[1]) return idMatch[1];
     } catch {
+      const fallbackMatch = String(url).match(/id(\d{6,})/i);
+      if (fallbackMatch?.[1]) return fallbackMatch[1];
       return null;
     }
     return null;
@@ -850,16 +856,39 @@ function PlaylistDetailPage() {
     return String(genre).trim();
   };
 
-  const backfillGenresFromAppleLinks = async (sourceSongs) => {
-    if (genreBackfillRunningRef.current) {
+  const normalizeArtworkValue = (artworkUrl) => {
+    if (artworkUrl == null) {
+      return "";
+    }
+    const value = typeof artworkUrl === "string" ? artworkUrl.trim() : String(artworkUrl).trim();
+    if (!value) {
+      return "";
+    }
+    const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+    try {
+      const parsed = new URL(normalized);
+      if (!parsed.hostname) {
+        return "";
+      }
+      return normalized;
+    } catch {
+      return "";
+    }
+  };
+
+  const getItunesArtworkUrl = (track) =>
+    normalizeArtworkValue(track?.artworkUrl100 || track?.artworkUrl60 || track?.artworkUrl30);
+
+  const backfillMetadataFromAppleLinks = async (sourceSongs) => {
+    if (metadataBackfillRunningRef.current) {
       return;
     }
 
     const candidates = sourceSongs
       .filter(
         (song) =>
-          !normalizeGenreValue(song.genre) &&
-          getLinkType(song.youtube_url) === "apple_music"
+          !normalizeArtworkValue(song.artwork_url) &&
+          song.youtube_url
       )
       .map((song) => ({
         ...song,
@@ -867,7 +896,7 @@ function PlaylistDetailPage() {
       }))
       .filter(
         (song) =>
-          song.appleSongId && !genreBackfillAttemptedIdsRef.current.has(song.id)
+          song.appleSongId && !metadataBackfillAttemptedIdsRef.current.has(song.id)
       );
 
     if (!candidates.length) {
@@ -875,13 +904,13 @@ function PlaylistDetailPage() {
     }
 
     candidates.forEach((song) => {
-      genreBackfillAttemptedIdsRef.current.add(song.id);
+      metadataBackfillAttemptedIdsRef.current.add(song.id);
     });
 
-    genreBackfillRunningRef.current = true;
+    metadataBackfillRunningRef.current = true;
 
     try {
-      const genreByAppleSongId = {};
+      const metadataByAppleSongId = {};
       const uniqueAppleSongIds = [...new Set(candidates.map((song) => String(song.appleSongId)))];
 
       for (const appleSongId of uniqueAppleSongIds) {
@@ -899,59 +928,66 @@ function PlaylistDetailPage() {
             results.find((item) => String(item.trackId) === appleSongId) ||
             results.find((item) => item.kind === "song");
           const genre = normalizeGenreValue(matchedTrack?.primaryGenreName);
-          if (genre) {
-            genreByAppleSongId[appleSongId] = genre;
+          const artworkUrl = getItunesArtworkUrl(matchedTrack);
+          if (genre || artworkUrl) {
+            metadataByAppleSongId[appleSongId] = { genre, artworkUrl };
           }
         } catch (lookupError) {
           console.error(lookupError);
         }
       }
 
-      const updatesByGenre = candidates.reduce((acc, song) => {
-        const genre = genreByAppleSongId[String(song.appleSongId)];
-        if (!genre) {
-          return acc;
-        }
-        if (!acc[genre]) {
-          acc[genre] = [];
-        }
-        acc[genre].push(song.id);
-        return acc;
-      }, {});
-
-      const songGenreMap = {};
+      const songPatchMap = {};
       await Promise.all(
-        Object.entries(updatesByGenre).map(async ([genre, songIds]) => {
+        candidates.map(async (song) => {
+          const metadata = metadataByAppleSongId[String(song.appleSongId)];
+          if (!metadata) {
+            return;
+          }
+
+          const updatePayload = {};
+          const existingGenre = normalizeGenreValue(song.genre);
+          const existingArtwork = normalizeArtworkValue(song.artwork_url);
+
+          if (!existingGenre && metadata.genre) {
+            updatePayload.genre = metadata.genre;
+          }
+          if (!existingArtwork && metadata.artworkUrl) {
+            updatePayload.artwork_url = metadata.artworkUrl;
+          }
+
+          if (Object.keys(updatePayload).length === 0) {
+            return;
+          }
+
           const { error: updateError } = await supabase
             .from("songs")
-            .update({ genre })
-            .in("id", songIds);
+            .update(updatePayload)
+            .eq("id", song.id);
 
           if (updateError) {
             console.error(updateError);
             return;
           }
 
-          songIds.forEach((songId) => {
-            songGenreMap[songId] = genre;
-          });
+          songPatchMap[song.id] = updatePayload;
         })
       );
 
-      if (Object.keys(songGenreMap).length > 0) {
+      if (Object.keys(songPatchMap).length > 0) {
         setSongs((prev) =>
           prev.map((song) =>
-            songGenreMap[song.id]
+            songPatchMap[song.id]
               ? {
                   ...song,
-                  genre: songGenreMap[song.id],
+                  ...songPatchMap[song.id],
                 }
               : song
           )
         );
       }
     } finally {
-      genreBackfillRunningRef.current = false;
+      metadataBackfillRunningRef.current = false;
     }
   };
 
@@ -968,13 +1004,15 @@ function PlaylistDetailPage() {
     } else {
       const normalizedSongs = (data || []).map((song) => {
         const normalizedGenre = normalizeGenreValue(song.genre);
+        const normalizedArtwork = normalizeArtworkValue(song.artwork_url);
         return {
           ...song,
           genre: normalizedGenre || null,
+          artwork_url: normalizedArtwork || null,
         };
       });
       setSongs(normalizedSongs);
-      void backfillGenresFromAppleLinks(normalizedSongs);
+      void backfillMetadataFromAppleLinks(normalizedSongs);
     }
     setLoading(false);
   };
@@ -1045,6 +1083,7 @@ function PlaylistDetailPage() {
           artist: track.artistName || "",
           youtube_url: track.trackViewUrl || track.previewUrl || null,
           genre: track.primaryGenreName || null,
+          artwork_url: getItunesArtworkUrl(track) || null,
           playlist_id: parseInt(playlistId),
         },
       ]);
@@ -1084,8 +1123,8 @@ function PlaylistDetailPage() {
   };
 
   useEffect(() => {
-    genreBackfillAttemptedIdsRef.current.clear();
-    genreBackfillRunningRef.current = false;
+    metadataBackfillAttemptedIdsRef.current.clear();
+    metadataBackfillRunningRef.current = false;
 
     fetchPlaylist();
     fetchSongs();
@@ -1119,6 +1158,48 @@ function PlaylistDetailPage() {
 
   const getSongGenre = (song) => {
     return normalizeGenreValue(song?.genre);
+  };
+
+  const getSongArtwork = (song) => {
+    return normalizeArtworkValue(song?.artwork_url);
+  };
+
+  const getPlaceholderVariant = (song) => {
+    const seedBase = `${song?.id || ""}-${song?.title || ""}-${song?.artist || ""}`;
+    let hash = 0;
+    for (let i = 0; i < seedBase.length; i += 1) {
+      hash = (hash * 31 + seedBase.charCodeAt(i)) >>> 0;
+    }
+    const variant = hash % 5;
+    switch (variant) {
+      case 0:
+        return "corner-tl";
+      case 1:
+        return "corner-tr";
+      case 2:
+        return "corner-br";
+      case 3:
+        return "corner-bl";
+      case 4:
+      default:
+        return "circle";
+    }
+  };
+
+  const getPlaceholderClipPath = (variant) => {
+    switch (variant) {
+      case "corner-tl":
+        return "circle(100% at 0% 0%)";
+      case "corner-tr":
+        return "circle(100% at 100% 0%)";
+      case "corner-br":
+        return "circle(100% at 100% 100%)";
+      case "corner-bl":
+        return "circle(100% at 0% 100%)";
+      case "circle":
+      default:
+        return "circle(50% at 50% 50%)";
+    }
   };
 
   const genreDistribution = useMemo(() => {
@@ -1548,21 +1629,41 @@ function PlaylistDetailPage() {
                 </div>
               ) : (
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-bold text-[#0a0a0a] md:text-xl">{song.title}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <p className="text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
-                      {getSongGenre(song) && (
-                        <span className="max-w-[170px] truncate rounded-full bg-[#ece9df] px-2 py-0.5 text-[11px] font-semibold text-[#6b665b] sm:max-w-none sm:overflow-visible sm:whitespace-normal">
-                          {getSongGenre(song)}
-                        </span>
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="hidden lg:block">
+                      {getSongArtwork(song) ? (
+                        <img
+                          src={getSongArtwork(song)}
+                          alt={`${song.title} 앨범 커버`}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-16 w-16 rounded-lg border border-[#cfc8b8] bg-[#ece9df] object-cover"
+                        />
+                      ) : (
+                        <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#cfc8b8] bg-[#ece9df]">
+                          <div
+                            className="absolute inset-1 bg-[#D4A84F]"
+                            style={{ clipPath: getPlaceholderClipPath(getPlaceholderVariant(song)) }}
+                          />
+                        </div>
                       )}
                     </div>
-                    {song.youtube_url && (
-                      <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#c95652] hover:underline">
-                        {getLinkTypeLabel(getLinkType(song.youtube_url))}
-                      </a>
-                    )}
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-bold text-[#0a0a0a] md:text-xl">{song.title}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <p className="text-base font-bold text-[#3a352b] md:text-lg">{song.artist}</p>
+                        {getSongGenre(song) && (
+                          <span className="max-w-[170px] truncate rounded-full bg-[#ece9df] px-2 py-0.5 text-[11px] font-semibold text-[#6b665b] sm:max-w-none sm:overflow-visible sm:whitespace-normal">
+                            {getSongGenre(song)}
+                          </span>
+                        )}
+                      </div>
+                      {song.youtube_url && (
+                        <a href={song.youtube_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-bold text-[#c95652] hover:underline">
+                          {getLinkTypeLabel(getLinkType(song.youtube_url))}
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center justify-end gap-2">
                     {confirmDeleteId === song.id ? (
