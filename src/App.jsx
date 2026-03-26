@@ -906,24 +906,19 @@ function PlaylistDetailPage() {
 
     try {
       const url = `/api/itunes?endpoint=lookup&id=${encodeURIComponent(appleSongId)}&entity=song`;
-      console.log(`[backfill] lookup id=${appleSongId}`, url);
       const response = await fetch(url);
       if (!response.ok) {
-        console.warn(`[backfill] lookup failed status=${response.status} id=${appleSongId}`);
         return null;
       }
 
       const data = await response.json();
       const results = data.results || [];
-      console.log(`[backfill] lookup id=${appleSongId} → ${results.length} results`);
       const matchedTrack =
         results.find((item) => String(item.trackId) === String(appleSongId)) ||
         results.find((item) => item.kind === "song");
-      const meta = getItunesMetadataFromTrack(matchedTrack);
-      console.log(`[backfill] lookup id=${appleSongId} → meta=`, meta);
-      return meta;
+      return getItunesMetadataFromTrack(matchedTrack);
     } catch (lookupError) {
-      console.error(`[backfill] lookup error id=${appleSongId}`, lookupError);
+      console.error(lookupError);
       return null;
     }
   };
@@ -935,12 +930,10 @@ function PlaylistDetailPage() {
     }
 
     try {
-      console.log(`[backfill] search title/artist: "${query}"`);
       const response = await fetch(
         `/api/itunes?endpoint=search&term=${encodeURIComponent(query)}&entity=song&limit=5`
       );
       if (!response.ok) {
-        console.warn(`[backfill] search failed status=${response.status} query="${query}"`);
         return null;
       }
 
@@ -966,18 +959,15 @@ function PlaylistDetailPage() {
         return artistMatched && titleMatched;
       });
 
-      const result = strictMatch || relaxedMatch || null;
-      console.log(`[backfill] search "${query}" → ${result ? result.trackName : 'no match'}`);
-      return result;
+      return strictMatch || relaxedMatch || null;
     } catch (searchError) {
-      console.error(`[backfill] search error query="${query}"`, searchError);
+      console.error(searchError);
       return null;
     }
   };
 
   const backfillMetadataFromAppleLinks = async (sourceSongs) => {
     if (metadataBackfillRunningRef.current) {
-      console.log('[backfill] already running, skip');
       return;
     }
 
@@ -995,8 +985,6 @@ function PlaylistDetailPage() {
         ...song,
         appleSongId: extractAppleMusicSongId(song.youtube_url),
       }));
-
-    console.log(`[backfill] candidates=${candidates.length}`, candidates.map(s => `${s.title}(id=${s.appleSongId}, needsGenre=${!normalizeGenreValue(s.genre)}, needsArtwork=${!normalizeArtworkValue(s.artwork_url)})`));
 
     if (!candidates.length) {
       return;
@@ -1049,27 +1037,23 @@ function PlaylistDetailPage() {
           }
 
           if (Object.keys(updatePayload).length === 0) {
-            console.log(`[backfill] song "${song.title}" already has all metadata, skip`);
             return;
           }
 
-          console.log(`[backfill] updating song "${song.title}" id=${song.id}`, updatePayload);
           const { error: updateError } = await supabase
             .from("songs")
             .update(updatePayload)
             .eq("id", song.id);
 
           if (updateError) {
-            console.error(`[backfill] supabase update error song="${song.title}"`, updateError);
+            console.error(updateError);
             return;
           }
 
-          console.log(`[backfill] updated song "${song.title}" ✓`);
           songPatchMap[song.id] = updatePayload;
         })
       );
 
-      console.log(`[backfill] done. updated=${Object.keys(songPatchMap).length} songs`);
       if (Object.keys(songPatchMap).length > 0) {
         setSongs((prev) =>
           prev.map((song) =>
@@ -1083,7 +1067,7 @@ function PlaylistDetailPage() {
         );
       }
     } catch (backfillError) {
-      console.error('[backfill] unexpected error', backfillError);
+      console.error(backfillError);
     } finally {
       metadataBackfillRunningRef.current = false;
     }
